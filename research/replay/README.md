@@ -15,18 +15,34 @@ published study, and how much sooner?**
   non-overlapping-CI stopping rule (same constants: population prior 2/2,
   `MIN_EVIDENCE_TRIALS=8`), operating on a plain CSV instead of the app's
   database.
-- `example_synthetic_case.csv` is **entirely made up by hand** for this
-  repo — a plausible 8-session alternating-treatments shape, NOT digitized
-  from any real publication. It exists only to prove the harness's mechanism
-  actually works (`backend/.venv/bin/python -m research.replay.harness
-  research/replay/example_synthetic_case.csv A`), and must never be cited as
-  a real result.
+- `run_replay_study.py` is real, tested code too — it batch-processes every
+  case in `cases/` and writes an aggregate report to `results/`, so that
+  once a real case exists, turning it (and every case after it) into a
+  result is one command, not a one-off script per case.
+- `cases/example_synthetic_case.csv` (+ its `.json` metadata) is **entirely
+  made up by hand** for this repo — a plausible 8-session
+  alternating-treatments shape, NOT digitized from any real publication. It
+  exists only to prove the harness and batch runner actually work, and its
+  metadata explicitly marks it `"is_synthetic": true` so it can never be
+  silently mistaken for a real finding in a report.
 - **No real published data is included.** I (the assistant that built this)
   cannot access or reproduce a real journal figure — that would also be a
   copyright problem to embed in this repo. Getting real cases in here is a
-  manual step for whoever runs this study next.
+  manual step for whoever runs this study next — this file, and
+  `run_replay_study.py`'s validation, exist to make that step as close to
+  "drop two files in a folder and run one command" as possible.
 
 ## How to add a real case
+
+Every case is **two files sharing a basename** in `cases/`:
+
+```
+cases/
+├── majdalany_2014_child3.csv
+├── majdalany_2014_child3.json
+├── example_synthetic_case.csv     (already here, for the mechanism check)
+└── example_synthetic_case.json
+```
 
 1. Find a published single-case (or alternating-treatments / ABAB) graph
    comparing two teaching conditions for an autistic child — e.g. from the
@@ -36,7 +52,7 @@ published study, and how much sooner?**
    validated for exactly this in prior single-case-design research) to read
    each data point's (session number, value) off the published figure, for
    each condition/phase shown.
-3. Save it as a CSV with these columns:
+3. Save the points as `cases/<name>.csv` with these columns:
 
    ```csv
    session,condition,value,n
@@ -55,19 +71,47 @@ published study, and how much sooner?**
      so (e.g. "10 trials/session"); otherwise leave it as 1 and treat each
      plotted point as a single Bernoulli-style observation — coarser, but
      still usable.
-4. Note whatever verdict the PUBLISHED study itself reached (which condition
-   "won", and after how many sessions/phases) — you'll need this as the
-   `reference_winner` to check agreement; it should already be written into
-   the paper you're digitizing.
-5. Run it:
+4. Save `cases/<name>.json` with the SAME basename as the CSV:
+
+   ```json
+   {
+     "is_synthetic": false,
+     "citation": "Majdalany et al. (2014), Child 3, Figure 2",
+     "reference_winner": "distributed",
+     "notes": "Optional: anything about how you read the graph worth remembering later."
+   }
+   ```
+
+   - `is_synthetic` (**required**, boolean): `false` for a real digitized
+     case. A case whose `.json` is missing, invalid, or missing this field
+     is **skipped with a printed warning**, never silently included — this
+     is deliberate: a real finding must never be produced from a case the
+     tooling couldn't actually validate.
+   - `citation` (**required**): where this came from. Keep it precise
+     enough to put directly into the paper's references.
+   - `reference_winner` (optional): whatever verdict the PUBLISHED study
+     itself reached (which condition "won") — needed to compute
+     `agrees_with_reference`; omit it if the paper's own conclusion isn't a
+     clean single-condition verdict.
+   - `notes` (optional).
+
+5. Run every case in `cases/` at once:
+
+   ```bash
+   backend/.venv/bin/python -m research.replay.run_replay_study
+   ```
+
+   Writes `results/replay_results.csv` (one row per case) and
+   `results/replay_summary.md` (a human-readable table, plus an aggregate
+   agreement rate once at least one real, non-synthetic case exists).
+
+   For a single case without going through the `cases/` folder (e.g. while
+   still digitizing and iterating on one before committing it), you can also
+   call the harness directly:
 
    ```bash
    backend/.venv/bin/python -m research.replay.harness path/to/your_case.csv <reference_winner>
    ```
-
-   or call `research.replay.harness.replay_file(path, reference_winner=...)`
-   from a script if you're running several cases and want to aggregate them
-   into a table (mirroring `research/run_simulation_study.py`'s pattern).
 
 ## Reading the result
 
@@ -83,3 +127,7 @@ published study, and how much sooner?**
   clinical judgement, no visual-inspection nuance) reads the SAME data
   differently than the study's authors did, worth a real discussion
   paragraph in the paper if it happens, not something to discard.
+- The aggregate line in `replay_summary.md` ("N/M real cases where AURA's
+  verdict agreed...") only ever counts cases with `"is_synthetic": false` —
+  the synthetic example is always shown in the table (clearly tagged) but
+  never folded into that headline number.

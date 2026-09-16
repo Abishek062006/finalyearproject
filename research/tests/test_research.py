@@ -190,7 +190,7 @@ def test_expert_manual_locks_after_assessment_and_then_freezes():
 def test_replay_finds_the_correct_winner_on_the_synthetic_example():
     from pathlib import Path
 
-    csv_path = Path(__file__).resolve().parent.parent / "replay" / "example_synthetic_case.csv"
+    csv_path = Path(__file__).resolve().parent.parent / "replay" / "cases" / "example_synthetic_case.csv"
     result = replay_file(csv_path, reference_winner="A")
     assert result["winner"] == "A"
     assert result["agrees_with_reference"] is True

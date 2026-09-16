@@ -15,8 +15,12 @@ pieces, in the order README §4 "Filling the gap" describes them:
    comparisons. Reads the existing CSVs; doesn't re-run either study.
 4. **Replay study** (`replay/`) — digitize a real published single-case
    graph and ask whether AURA's stopping rule reaches the same verdict,
-   sooner. The harness is real and tested; the real published data is not
-   included (see `replay/README.md` for why, and how to add it).
+   sooner. The harness AND the batch runner (`replay/run_replay_study.py`,
+   which turns everything in `replay/cases/` into one report) are real and
+   tested; the real published data is not included (see `replay/README.md`
+   for why, and exactly how to add it — every case dropped in `cases/` is
+   validated, and skipped with a warning rather than silently trusted if
+   its metadata is missing or malformed).
 
 Everything in (1), (2), and (3) is real, executed code producing real
 numbers in `results/` — not a plan for numbers that could exist. Re-run
@@ -53,7 +57,8 @@ backend/.venv/bin/pip install -r research/requirements.txt   # matplotlib + scip
 backend/.venv/bin/python -m research.run_simulation_study     # ~1-2 minutes
 backend/.venv/bin/python -m research.run_ablation_study        # ~4-5 minutes
 backend/.venv/bin/python -m research.run_significance            # <1 second
-backend/.venv/bin/python -m pytest research/tests/ -v              # sanity tests, <1s
+backend/.venv/bin/python -m research.replay.run_replay_study       # replay every case in replay/cases/, <1 second
+backend/.venv/bin/python -m pytest research/tests/ -v                # sanity tests, <1s
 ```
 
 Output lands in `results/`: `simulation_results.csv` / `simulation_summary.md`
@@ -92,6 +97,10 @@ research/
 ├── run_ablation_study.py          # AURA vs 4 ablations -> results/ablation_*
 ├── run_significance.py             # paired tests on top of the two CSVs above -> results/significance.md
 ├── replay/                          # single-case replay harness (see replay/README.md)
+│   ├── harness.py                       # Beta-Binomial stopping rule replayed over a CSV
+│   ├── run_replay_study.py               # batch-runs every case in cases/ -> replay/results/
+│   ├── cases/                             # one <name>.csv + <name>.json per digitized case
+│   └── results/                            # replay_results.csv + replay_summary.md
 ├── tests/                            # sanity tests, not a re-run of the full studies
 └── results/                           # real output of the last run, + RESULTS.md narrative
 ```

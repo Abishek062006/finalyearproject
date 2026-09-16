@@ -197,10 +197,12 @@ contribution. Features may be cut; that may not.
     Splash is doing a happy dance!"); the parent dashboard's new Interests card
     rendered the same evidence as friendly chips.
 - **Phase 8 — mostly done.** Child simulator, 5 baselines, simulation study,
-  ablation study — all real, executed, producing real numbers in
-  `research/results/`. Replay study infrastructure built and tested; real
-  published data not yet added (needs a human with PlotDigitizer and a
-  paper, not code — see `research/replay/README.md`).
+  ablation study, paired significance testing (re-run at a larger N for
+  real power) — all real, executed, producing real numbers in
+  `research/results/`. Replay study infrastructure, including a validated
+  batch runner ready for real cases, built and tested; real published data
+  not yet added (needs a human with PlotDigitizer and a paper, not code —
+  see `research/replay/README.md`).
   - **The "AURA" condition in every study is the literal production
     `DecisionEngine`**, not a re-implementation — every module in
     `research/` drives `app.engine.*`/`app.services.*` directly against a
@@ -289,8 +291,23 @@ contribution. Features may be cut; that may not.
     smaller sample's noise is exactly what re-running at a larger N is for.
     Full write-up: `research/results/significance.md` +
     `research/results/RESULTS.md`.
-  - **Not yet done:** real published data in the replay study (needs a
-    human with journal access and PlotDigitizer, not more code).
+  - **Replay study made "pilot ready"**: `research/replay/cases/` +
+    `run_replay_study.py` — once a real digitized case exists (two files:
+    `<name>.csv` of points, `<name>.json` of citation/reference-verdict
+    metadata), turning it AND every case after it into a report is one
+    command (`python -m research.replay.run_replay_study`), not a one-off
+    script per case. A case with missing/invalid/incomplete metadata is
+    skipped with a printed warning rather than silently trusted or crashing
+    the whole batch — no real published finding can be produced from a case
+    the tooling couldn't actually validate. The synthetic example moved
+    into `cases/` alongside its own `is_synthetic: true` metadata, so it
+    always appears clearly tagged in the report and is explicitly excluded
+    from the real-case agreement rate. 10 new tests
+    (`research/tests/test_replay_batch.py`) — **34/34 research tests
+    passing.**
+  - **Not yet done:** actually getting real published data into
+    `research/replay/cases/` (needs a human with journal access and
+    PlotDigitizer, not more code).
 - **Phase 9 (pilot readiness) — in progress; the code half is done, the
   fieldwork half (partner school, ethics approval, the pilot itself, paper
   writing) is not, and isn't something a coding session can do.** Built:

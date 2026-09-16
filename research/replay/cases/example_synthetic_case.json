@@ -1,0 +1,6 @@
+{
+  "is_synthetic": true,
+  "citation": "SYNTHETIC EXAMPLE — hand-built for this repo, not a real publication. Demonstrates the CSV format and proves the harness mechanism works, nothing more.",
+  "reference_winner": "A",
+  "notes": "See research/replay/README.md. Never cite this case's numbers as a real finding."
+}

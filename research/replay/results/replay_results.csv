@@ -1,0 +1,2 @@
+case,is_synthetic,citation,total_sessions,session_of_decision,winner,reference_winner,agrees_with_reference,sessions_saved
+example_synthetic_case,True,"SYNTHETIC EXAMPLE — hand-built for this repo, not a real publication. Demonstrates the CSV format and proves the harness mechanism works, nothing more.",8,6,A,A,True,2
