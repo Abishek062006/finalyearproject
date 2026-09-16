@@ -7,6 +7,39 @@ contribution. Features may be cut; that may not.
 
 ---
 
+## Progress log
+
+- **Phase 0 — done.** Repo, SQLite (no Docker), FastAPI + Expo both boot.
+- **Phase 1 — done.** Full 31-table schema built and verified (`docs/SCHEMA.md`);
+  `scripts/seed.py` seeds numeracy num_1_5, 4 themes, 2 matched item sets, and the
+  `teaching_method` + `modality` axes.
+- **Phase 2 — done, and pulled forward Phase 4's core.** Per the Phase 1 guardrail
+  ("log the randomization from day one"), the vertical slice already includes a real
+  `ExperimentManager` + `EffectEstimator` (Thompson sampling, hierarchical prior,
+  non-overlapping-CI winner detection) + safety layer, not just a rule-based planner.
+  Verified end-to-end in-browser against the real backend. Two real bugs found and
+  fixed along the way (unstable `useMemo` shuffle dependency; `measureInWindow` not
+  existing on web). **Known gap:** `drag_drop` couldn't be verified via automated
+  browser mouse simulation — needs a manual check on a real tablet/simulator before
+  the pilot (see `docs/RUNNING.md`).
+- **Phase 3 — done.** Real auth (JWT, bcrypt directly — passlib 1.7.4 is incompatible
+  with bcrypt>=4.1, see `app/core/security.py`), parent API (create/list children,
+  summary, recommendations, consent), and the parent UI (login/register, child list,
+  create child with initial interests, dashboard, consent). `ActivityInstance.completed`
+  was silently never being set — fixed, since the dashboard's activity count depends
+  on it. Verified end-to-end in-browser: register → auto-login → create child → play
+  a full round across both modalities → dashboard reflects real minutes/completions/
+  suggestions → consent toggle persists (append-only) → token survives a page reload.
+  Navigation is a small hand-rolled screen-state switch in `App.tsx`, not a routing
+  library — fine at this size; reconsider (react-navigation) once the educator
+  dashboard in Phase 4 adds more screens and back-stack behavior starts to matter.
+- **Phase 4 onward — as planned below**, with the note that its "research engine v1"
+  bullet points are now mostly satisfied by what Phase 2 already built; Phase 4's
+  remaining new work is the **educator dashboard** and any engine pieces not yet
+  covered (drift-triggered re-testing, richer safety tuning).
+
+---
+
 ## Parallel track — start in week 1, runs throughout
 
 These have the longest lead time and block the pilot, not the code.

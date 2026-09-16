@@ -6,6 +6,10 @@
  * The screen makes NO adaptation decisions itself — every varying field
  * (theme, modality, difficulty, method) comes from the backend's
  * DecisionEngine (docs/ARCHITECTURE.md §6). This file only renders it.
+ *
+ * Takes a real childId (docs/PLAN.md Phase 3: the parent creates and picks
+ * the child; this screen no longer self-registers via /dev/quickstart —
+ * that endpoint remains for backend testing/dev convenience only).
  */
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
@@ -13,15 +17,14 @@ import { GuideBubble } from "./GuideBubble";
 import { CountingScene } from "./CountingScene";
 import { TapAnswer } from "./TapAnswer";
 import { DragDropAnswer } from "./DragDropAnswer";
-import { api, Activity, Child, Session } from "../shared/api";
+import { api, Activity, Session } from "../shared/api";
 import { colors, spacing, ThemeCode } from "../shared/theme";
 
 type Phase = "loading" | "playing" | "feedback" | "error";
 
-export function ChildScreen() {
+export function ChildScreen({ childId, onExit }: { childId: string; onExit: () => void }) {
   const [phase, setPhase] = useState<Phase>("loading");
   const [errorMessage, setErrorMessage] = useState("");
-  const [child, setChild] = useState<Child | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [activity, setActivity] = useState<Activity | null>(null);
   const [itemIndex, setItemIndex] = useState(0);
@@ -32,10 +35,8 @@ export function ChildScreen() {
   const bootstrap = useCallback(async () => {
     try {
       setPhase("loading");
-      const c = await api.quickstartChild();
-      const s = await api.startSession(c.id);
+      const s = await api.startSession(childId);
       const a = await api.nextActivity(s.id);
-      setChild(c);
       setSession(s);
       setActivity(a);
       setItemIndex(0);
@@ -48,7 +49,7 @@ export function ChildScreen() {
       );
       setPhase("error");
     }
-  }, []);
+  }, [childId]);
 
   useEffect(() => {
     bootstrap();
@@ -108,6 +109,9 @@ export function ChildScreen() {
         <Pressable style={styles.retryButton} onPress={bootstrap}>
           <Text style={styles.retryButtonText}>Try again</Text>
         </Pressable>
+        <Pressable onPress={onExit} style={{ marginTop: spacing.md }}>
+          <Text style={styles.backLink}>← Back</Text>
+        </Pressable>
       </View>
     );
   }
@@ -124,8 +128,17 @@ export function ChildScreen() {
         : "Almost! Let's try another one."
       : "Let's play!";
 
+  async function finishForToday() {
+    if (session) await api.endSession(session.id);
+    onExit();
+  }
+
   return (
     <View style={styles.container}>
+      <Pressable style={styles.exitButton} onPress={finishForToday}>
+        <Text style={styles.exitButtonText}>Done for today</Text>
+      </Pressable>
+
       <GuideBubble theme={theme} text={guideText} />
 
       <CountingScene theme={theme} count={item.answer.count} />
@@ -160,6 +173,18 @@ const styles = StyleSheet.create({
   errorText: { color: colors.textPrimary, fontSize: 16, textAlign: "center", marginBottom: spacing.lg },
   retryButton: { backgroundColor: colors.primary, paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, borderRadius: 20 },
   retryButtonText: { color: "#fff", fontWeight: "700", fontSize: 18 },
+  backLink: { color: colors.textSecondary, fontWeight: "600", fontSize: 15 },
   debugStrip: { position: "absolute", bottom: spacing.sm, left: spacing.md, right: spacing.md },
   debugText: { fontSize: 11, color: colors.textSecondary, textAlign: "center", fontFamily: "monospace" },
+  exitButton: {
+    position: "absolute",
+    top: spacing.md,
+    right: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    zIndex: 10,
+  },
+  exitButtonText: { color: colors.textSecondary, fontWeight: "600", fontSize: 13 },
 });

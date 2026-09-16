@@ -33,9 +33,16 @@ npm run web       # browser, fastest for iteration
 # or: npm start    then press i (iOS) / a (Android)
 ```
 
-The child screen calls `POST /dev/quickstart` on load to create a throwaway
-parent + child (no auth yet — see docs/PLAN.md Phase 3), starts a session,
-and renders whatever `ActivitySpec` the backend's DecisionEngine returns.
+**Phase 3 flow:** register/log in → add a child (pick a nickname, age band,
+and a few interests) → **Play** to hand the tablet to the child, or
+**View progress** for the parent dashboard (learning time, progress by
+domain, today's suggestion, topics to review, session history) and
+**Privacy & camera settings** (append-only consent — see docs/SCHEMA.md §2).
+
+`POST /dev/quickstart` (creates a throwaway parent + child with no login)
+still exists for backend testing/curl convenience, but the app itself no
+longer uses it — the child screen takes a real `childId` chosen by a
+logged-in parent.
 
 **Note on `Platform.OS` base URL** (`app/src/shared/api.ts`): `localhost`
 works for web and the iOS simulator; an Android emulator needs `10.0.2.2`

@@ -117,6 +117,19 @@ def record_answer(
     for link in db.query(ActivityInstanceAssignment).filter_by(activity_instance_id=activity_instance_id):
         db.add(Outcome(assignment_id=link.assignment_id, kind="immediate", value=1.0 if correct else 0.0, n=1))
 
+    # An activity is "completed" once every item in its matched set has been
+    # answered — this is what the parent dashboard's "activities completed"
+    # count reads (app/services/parent_service.py). Was previously never set.
+    total_items = len(activity.spec.get("items", []))
+    answered_items = (
+        db.query(Interaction)
+        .filter_by(activity_instance_id=activity_instance_id, kind="answer")
+        .count()
+    )
+    if total_items and answered_items >= total_items and not activity.completed:
+        activity.completed = True
+        activity.ended_at = now
+
     db.commit()
     db.refresh(interaction)
     return interaction

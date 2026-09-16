@@ -1,7 +1,16 @@
 """
 Every test gets its own in-memory SQLite database, seeded fresh. This proves
 the engine works against the real schema without touching aura_dev.db.
+
+The env var must be set BEFORE `app.db` is imported anywhere (including by
+`app.main` in test_parent_api.py) — app.config.settings and app.db.engine
+are both built at import time, so setting this after the fact would have no
+effect and would leave a stray backend/aura_dev.db file from test runs.
 """
+import os
+
+os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
