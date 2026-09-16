@@ -84,7 +84,7 @@ def seeded_db(db):
 
     db.add(ActivityTemplate(topic_id=topic.id, modality="drag_drop", method_compatible=["errorless", "try_then_correct"], difficulty_min=1, difficulty_max=3, config={}))
 
-    for theme_code in ("dino", "space"):
+    for theme_code in themes:  # one matched item set per theme (docs/PLAN.md Phase 7)
         item_set = ItemSet(topic_id=topic.id, match_group="num_1_5_intro_v1", difficulty_mean=1.4, size=5)
         db.add(item_set)
         db.flush()

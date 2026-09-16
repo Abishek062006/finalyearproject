@@ -85,8 +85,8 @@ def test_fresh_practice_schedules_3_and_7_day_probes_per_assignment(seeded_db, c
 
     probes = seeded_db.query(ScheduledProbe).filter_by(child_id=child_id).all()
     delays = sorted(p.delay_days for p in probes)
-    # 2 active axes (teaching_method, modality) x 2 delays (3, 7) = 4 probes
-    assert delays == [3, 3, 7, 7]
+    # 3 active axes (teaching_method, modality, theme) x 2 delays (3, 7) = 6 probes
+    assert delays == [3, 3, 3, 7, 7, 7]
     assert all(p.status == "pending" for p in probes)
     assert all(p.item_set_id == activity.spec["item_set_id"] for p in probes)
 
@@ -99,7 +99,7 @@ def test_practicing_the_same_topic_again_does_not_spam_duplicate_probes(seeded_d
             session_service.record_answer(seeded_db, activity.id, item_id=item["id"], correct=True, response_time_ms=1000)
 
     probes = seeded_db.query(ScheduledProbe).filter_by(child_id=child_id, status="pending").all()
-    assert len(probes) == 4  # still just one pending 3-day + 7-day pair per axis, not eight
+    assert len(probes) == 6  # still just one pending 3-day + 7-day pair per axis (3 axes), not twelve
 
 
 def test_a_due_probe_is_delivered_with_the_original_item_set_and_attributes_the_outcome(seeded_db, child_id):
@@ -109,7 +109,7 @@ def test_a_due_probe_is_delivered_with_the_original_item_set_and_attributes_the_
         session_service.record_answer(seeded_db, first_activity.id, item_id=item["id"], correct=True, response_time_ms=1000)
 
     probes = seeded_db.query(ScheduledProbe).filter_by(child_id=child_id, delay_days=3).all()
-    assert len(probes) == 2  # one per axis assignment
+    assert len(probes) == 3  # one per axis assignment (teaching_method, modality, theme)
     original_assignment_ids = {p.source_assignment_id for p in probes}
 
     # Force them due now instead of waiting 3 real days.

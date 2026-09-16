@@ -34,6 +34,12 @@ class TopicToReview(BaseModel):
     retention_percent: int  # RetentionModel's forgetting-curve estimate, not raw mastery (docs/PLAN.md Phase 5)
 
 
+class InterestOut(BaseModel):
+    theme_code: str
+    theme_label: str
+    level: str  # "high_interest" | "steady" | "still_building" | "still_discovering"
+
+
 class RecommendationOut(BaseModel):
     id: str
     kind: str
@@ -59,6 +65,7 @@ class ChildSummaryOut(BaseModel):
     activities_completed: int
     domains: list[DomainProgress]
     topics_to_review: list[TopicToReview]
+    interests: list[InterestOut]
     todays_suggestions: list[RecommendationOut]
     recent_sessions: list[SessionHistoryItem]
     recommended_session_minutes: float | None  # README §19; None until a session has finished

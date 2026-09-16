@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session as DBSession
 from app.models.curriculum import ItemSet
 from app.models.experiment import Arm, Assignment, Axis
 
-ACTIVE_AXIS_CODES = ["teaching_method", "modality"]
+ACTIVE_AXIS_CODES = ["teaching_method", "modality", "theme"]
 
 
 @dataclass

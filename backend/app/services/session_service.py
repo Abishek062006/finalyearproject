@@ -71,8 +71,11 @@ def next_activity(db: DBSession, session_id: str) -> ActivityInstance:
         "decision_types": {
             "teaching_method": spec.method_arm.decision_type if spec.method_arm else None,
             "modality": spec.modality_arm.decision_type if spec.modality_arm else None,
+            "theme": spec.theme_arm.decision_type if spec.theme_arm else None,
         },
         "theme": spec.theme_code,
+        "prompt_text": spec.prompt_text,
+        "encouragement": spec.encouragement,
         "item_set_id": spec.item_set_id,
         "items": spec.items,
         "probe_ids": spec.probe_ids,
@@ -102,7 +105,7 @@ def next_activity(db: DBSession, session_id: str) -> ActivityInstance:
             assignment_id=assignment.id if assignment else None,
         )
     else:
-        for arm_choice in (spec.method_arm, spec.modality_arm):
+        for arm_choice in (spec.method_arm, spec.modality_arm, spec.theme_arm):
             if arm_choice is None:
                 continue
             assignment = _find_assignment(db, session.child_id, arm_choice.axis_id, arm_choice.arm_id)

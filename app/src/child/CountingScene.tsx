@@ -6,12 +6,12 @@ import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { colors, radius, spacing, THEME_ASSETS, ThemeCode, typography } from "../shared/theme";
 
-export function CountingScene({ theme, count }: { theme: ThemeCode; count: number }) {
+export function CountingScene({ theme, count, promptText }: { theme: ThemeCode; count: number; promptText?: string }) {
   const asset = THEME_ASSETS[theme];
   return (
     <View style={styles.card}>
       <Text style={styles.emojiRow}>{asset.emoji.repeat(count)}</Text>
-      <Text style={styles.prompt}>How many {asset.guideName.toLowerCase()} friends?</Text>
+      <Text style={styles.prompt}>{promptText || `How many ${asset.guideName.toLowerCase()} friends?`}</Text>
     </View>
   );
 }

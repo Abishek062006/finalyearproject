@@ -28,10 +28,12 @@ from app.engine.learner_model import LearnerModel
 from app.engine.retention_model import RetentionModel
 from app.engine.safety import DistressMonitor, TherapistLocks
 from app.engine.session_planner import SessionPlanner
-from app.models.curriculum import ActivityTemplate, Item, ItemSet
+from app.models.curriculum import ActivityTemplate, Item, ItemSet, Theme
 from app.models.experiment import Axis
+from app.services import content_bank
 
-DEFAULT_THEME_CODE = "dino"  # placeholder until InterestModel + theme axis land (docs/PLAN.md Phase 7)
+DEFAULT_THEME_CODE = "dino"  # fallback only — the real choice comes from the theme axis (docs/PLAN.md Phase 7)
+THEME_AXIS_CODE = "theme"
 INTERVENTION_AXIS_CODE = "intervention"  # docs/PLAN.md Phase 6 — deliberately NOT in ExperimentManager.ACTIVE_AXIS_CODES
 
 
@@ -43,7 +45,10 @@ class ActivitySpec:
     difficulty: int
     method_arm: ArmChoice | None
     modality_arm: ArmChoice | None
+    theme_arm: ArmChoice | None
     theme_code: str
+    prompt_text: str
+    encouragement: list[str]
     item_set_id: str | None
     items: list[dict]
     probe_ids: list[str]  # ScheduledProbe rows this activity fulfills, if any (docs/PLAN.md Phase 5)
@@ -120,6 +125,20 @@ class DecisionEngine:
             candidate_arm_ids=allowed_ids,
         )
 
+    def _current_best_theme_code(self, child_id: str) -> str:
+        """Used only where a theme is needed but we don't want to spend a
+        new randomized trial doing it — e.g. flavoring an intervention
+        screen (docs/PLAN.md Phase 6/7). Prefers a confirmed theme-axis
+        winner; falls back to the default rather than exploring here."""
+        theme_axis = self.db.query(Axis).filter_by(code=THEME_AXIS_CODE).one_or_none()
+        if theme_axis is None:
+            return DEFAULT_THEME_CODE
+        arms = self.experiments.arms_for(theme_axis.id)
+        verdict = self.effects.winner(child_id, theme_axis.id, [a.id for a in arms])
+        if verdict is None:
+            return DEFAULT_THEME_CODE
+        return next(a for a in arms if a.id == verdict.arm_id).code
+
     def decide(self, child_id: str, session_id: str) -> ActivitySpec:
         # Local import: intervention_model imports engagement_model, and
         # keeping this here (rather than at module load) avoids any
@@ -150,6 +169,7 @@ class DecisionEngine:
                 db_child_id=child_id, choice=arm_choice, seed=self.experiments.random_seed_value(),
                 posterior_snapshot=posterior_snapshot, distress_level=distress_level,
             )
+            intervention_theme_code = self._current_best_theme_code(child_id)
             return ActivitySpec(
                 topic_id=topic_choice.topic_id,
                 topic_code=topic_choice.topic_code,
@@ -157,7 +177,10 @@ class DecisionEngine:
                 difficulty=1,
                 method_arm=None,
                 modality_arm=None,
-                theme_code=DEFAULT_THEME_CODE,
+                theme_arm=None,
+                theme_code=intervention_theme_code,
+                prompt_text=content_bank.get_theme_content(intervention_theme_code)["counting_prompt"],
+                encouragement=content_bank.get_theme_content(intervention_theme_code)["encouragement"],
                 item_set_id=None,
                 items=[],
                 probe_ids=[],
@@ -202,15 +225,41 @@ class DecisionEngine:
         due_probes = self.retention_model.due_probes_for_topic(child_id, topic_choice.topic_id)
         probe_item_set_id = next((p.item_set_id for p in due_probes if p.item_set_id), None)
 
+        theme_arm = arm_choices.get("theme")
+        chosen_theme = (
+            self.db.query(Theme).filter_by(code=theme_arm.arm_code).one()
+            if theme_arm is not None
+            else self.db.query(Theme).filter_by(code=DEFAULT_THEME_CODE).one_or_none()
+        )
+
         if probe_item_set_id is not None:
+            # README §13/docs/PLAN.md Phase 5: reuse the EXACT item set a
+            # pending probe was scheduled against, so a delayed check tests
+            # recall of the actual taught material. That set was authored in
+            # whichever theme it was originally taught in — NOT necessarily
+            # this round's freshly-chosen theme arm — so the rendering theme
+            # follows the item set's own items, not `chosen_theme`.
             item_set = self.db.query(ItemSet).filter_by(id=probe_item_set_id).one_or_none()
+            first_item = self.db.query(Item).filter_by(item_set_id=item_set.id).first() if item_set else None
+            render_theme = (
+                self.db.query(Theme).filter_by(id=first_item.theme_id).one()
+                if first_item and first_item.theme_id
+                else chosen_theme
+            )
         else:
-            item_set = self.experiments.matched_item_set(topic_choice.topic_id, theme_id=None)
+            # A real randomized comparison (docs/PLAN.md Phase 7) — interest
+            # is measured causally from a matched item set in the CHOSEN
+            # theme, not inferred from which theme a child happened to click.
+            item_set = self.experiments.matched_item_set(topic_choice.topic_id, theme_id=chosen_theme.id if chosen_theme else None)
+            render_theme = chosen_theme
 
         items = []
         if item_set is not None:
             rows = self.db.query(Item).filter_by(item_set_id=item_set.id).all()
             items = [{"id": i.id, "answer": i.answer, "distractors": i.distractors} for i in rows]
+
+        render_theme_code = render_theme.code if render_theme else DEFAULT_THEME_CODE
+        content = content_bank.get_theme_content(render_theme_code)
 
         return ActivitySpec(
             topic_id=topic_choice.topic_id,
@@ -219,7 +268,10 @@ class DecisionEngine:
             difficulty=difficulty,
             method_arm=arm_choices.get("teaching_method"),
             modality_arm=arm_choices.get("modality"),
-            theme_code=DEFAULT_THEME_CODE,
+            theme_arm=theme_arm,
+            theme_code=render_theme_code,
+            prompt_text=content["counting_prompt"],
+            encouragement=content["encouragement"],
             item_set_id=item_set.id if item_set else None,
             items=items,
             probe_ids=[p.id for p in due_probes],

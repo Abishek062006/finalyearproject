@@ -17,7 +17,7 @@ python3.11 -m venv .venv        # first time only
 - Re-run `scripts.seed` any time to reset to a clean state — it drops and
   recreates all tables (dev-only convenience, see the script's docstring).
 
-Run the test suite (5 tests covering the vertical slice + the research
+Run the test suite (43 tests covering the vertical slice + the research
 guardrails from docs/SCHEMA.md §9):
 
 ```bash
@@ -60,6 +60,34 @@ a normal lesson; the FIRST real answer after that measures whether engagement
 actually recovered and feeds that back to whichever arm was shown. The parent
 dashboard's "Suggested time today" card only appears after at least one full
 session has been ended.
+
+**Phase 7 (content bank + interest axis):** also automatic, no new child-facing
+screen. `theme` is now assigned the same randomized way as method/modality, so
+which of the 4 themes (dino/space/ocean/cars) shows up varies across
+activities until the model is confident one works best for that child — check
+the debug strip's `decision_types.theme` (`explore`/`exploit`) or just answer
+several rounds and watch the theme/prompt change. The child screen's prompt
+("How many fish friends?") and the celebration line after a correct answer
+now come from `content/bank/theme_content.json`, not a hardcoded string. The
+parent dashboard gets a new **Interests** card once there's any evidence —
+friendly tiers only (Loves this! / Enjoys this / Still discovering), never a
+raw number; the same evidence with real percentages is on the educator
+dashboard's existing per-axis view (axis `theme`).
+
+To regenerate the content bank (e.g. after adding a theme, or if Ollama is
+installed and you want LLM-generated text instead of the template fallback):
+
+```bash
+cd backend && .venv/bin/python -m pytest content/generator/ -v   # validator tests
+cd .. && backend/.venv/bin/python content/generator/generate_theme_content.py
+```
+
+This is a **one-time offline script**, never called at runtime — the whole
+point is zero per-request API cost. It tries a local Ollama model
+(`llama3.2`, 3s timeout) if one is running, otherwise silently falls back to
+a deterministic template; either way the output is validated (word count,
+banned words, no idioms) before being written to
+`content/bank/theme_content.json`, which the backend just reads.
 
 **Phase 4 flow (educator/counsellor):** on the registration screen, choose
 "Teacher / counsellor" instead of "Parent / guardian" — this routes to a

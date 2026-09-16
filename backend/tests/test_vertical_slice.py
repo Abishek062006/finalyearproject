@@ -20,6 +20,8 @@ def test_full_loop_creates_a_clean_log(seeded_db, child_id):
     assert len(activity.spec["items"]) == 5
     assert activity.spec["method"] in ("errorless", "try_then_correct")
     assert activity.spec["modality"] in ("tap", "drag_drop")
+    assert activity.spec["theme"] in ("dino", "space", "ocean", "cars")
+    assert activity.spec["prompt_text"]  # content bank populated this, not hardcoded (docs/PLAN.md Phase 7)
 
     item_id = activity.spec["items"][0]["id"]
     interaction = session_service.record_answer(
@@ -41,7 +43,7 @@ def test_every_decision_is_auditable(seeded_db, child_id):
     session_service.next_activity(seeded_db, session.id)
 
     assignments = seeded_db.query(Assignment).filter_by(child_id=child_id).all()
-    assert len(assignments) == 2  # teaching_method + modality, per active axes
+    assert len(assignments) == 3  # teaching_method + modality + theme, per active axes
     for a in assignments:
         assert a.decision_type in ("explore", "exploit", "locked", "safe_fallback")
         assert len(a.candidate_arm_ids) >= 1
@@ -55,7 +57,7 @@ def test_matched_item_sets_are_actually_matched(seeded_db):
     from app.models.curriculum import ItemSet
 
     sets = seeded_db.query(ItemSet).filter_by(match_group="num_1_5_intro_v1").all()
-    assert len(sets) == 2
+    assert len(sets) == 4  # one per theme (docs/PLAN.md Phase 7)
     sizes = {s.size for s in sets}
     diffs = [s.difficulty_mean for s in sets]
     assert len(sizes) == 1, "matched sets must be equal size"
@@ -63,8 +65,9 @@ def test_matched_item_sets_are_actually_matched(seeded_db):
 
 
 def test_outcomes_are_attributed_to_every_active_axis(seeded_db, child_id):
-    """One immediate result should be scored against BOTH the teaching_method
-    and modality assignments that produced that activity (docs/ARCHITECTURE.md §5)."""
+    """One immediate result should be scored against EVERY active-axis
+    assignment that produced that activity (docs/ARCHITECTURE.md §5) —
+    teaching_method, modality, AND theme (docs/PLAN.md Phase 7)."""
     session = session_service.start_session(seeded_db, child_id)
     activity = session_service.next_activity(seeded_db, session.id)
     item_id = activity.spec["items"][0]["id"]
@@ -72,7 +75,7 @@ def test_outcomes_are_attributed_to_every_active_axis(seeded_db, child_id):
     session_service.record_answer(seeded_db, activity.id, item_id=item_id, correct=True, response_time_ms=1500)
 
     outcomes = seeded_db.query(Outcome).all()
-    assert len(outcomes) == 2
+    assert len(outcomes) == 3
     assert all(o.kind == "immediate" and o.value == 1.0 for o in outcomes)
 
 

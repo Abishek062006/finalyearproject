@@ -6,12 +6,17 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session as DBSession
 
+from app.engine.effect_estimator import EffectEstimator, MIN_EVIDENCE_TRIALS
+from app.engine.experiment_manager import ExperimentManager
 from app.engine.retention_model import RetentionModel
 from app.models.adults import Recommendation
 from app.models.curriculum import Domain, Theme, Topic
+from app.models.experiment import Axis
 from app.models.identity import Child, Consent, EducatorLink, Guardianship, User
 from app.models.profile_state import EngagementState, InterestState, MasteryState
 from app.models.runtime import ActivityInstance, Session as SessionModel
+
+THEME_AXIS_CODE = "theme"
 
 
 def create_child(db: DBSession, owner_user_id: str, nickname: str, birth_year_month: str, initial_interest_codes: list[str]) -> Child:
@@ -90,6 +95,43 @@ def topics_to_review(db: DBSession, child_id: str, limit: int = 5) -> list[dict]
     ]
 
 
+def interest_summary(db: DBSession, child_id: str) -> list[dict]:
+    """README §2A #10: 'dynamically discovered interests' — which theme this
+    child actually learns best in, discovered from randomized theme
+    comparisons (docs/PLAN.md Phase 7), not just which theme they click on
+    most. Parent-facing: friendly tier labels only, never raw percentages or
+    posterior means — those stay on the educator dashboard (README §2A/§2B)."""
+    axis = db.query(Axis).filter_by(code=THEME_AXIS_CODE).one_or_none()
+    if axis is None:
+        return []
+
+    manager = ExperimentManager(db)
+    estimator = EffectEstimator(db)
+    scored = []
+    for arm in manager.arms_for(axis.id):
+        theme = db.query(Theme).filter_by(code=arm.code).one_or_none()
+        if theme is None:
+            continue
+        scored.append((theme, estimator.posterior(child_id, axis.id, arm.id)))
+
+    if not scored or all(post.n == 0 for _, post in scored):
+        return []  # nothing tried yet — no opinion to report
+
+    ranked = sorted(scored, key=lambda pair: pair[1].mean, reverse=True)
+    out = []
+    for i, (theme, post) in enumerate(ranked):
+        if post.n < MIN_EVIDENCE_TRIALS:
+            level = "still_discovering"
+        elif i == 0:
+            level = "high_interest"
+        elif i == len(ranked) - 1:
+            level = "still_building"
+        else:
+            level = "steady"
+        out.append({"theme_code": theme.code, "theme_label": theme.label, "level": level})
+    return out
+
+
 def ensure_todays_suggestion(db: DBSession, child_id: str) -> None:
     """Generates at most one 'revise' suggestion per child per day, only if
     there is a real candidate (an attempted, struggling topic)."""
@@ -166,6 +208,7 @@ def summary(db: DBSession, child_id: str) -> dict:
         "activities_completed": activities_completed,
         "domains": domain_progress(db, child_id),
         "topics_to_review": topics_to_review(db, child_id),
+        "interests": interest_summary(db, child_id),
         "todays_suggestions": todays_suggestions(db, child_id),
         "recent_sessions": sessions[:10],
         "recommended_session_minutes": latest_engagement.recommended_session_minutes if latest_engagement else None,

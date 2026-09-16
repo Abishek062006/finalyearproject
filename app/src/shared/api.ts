@@ -48,6 +48,8 @@ export interface ActivitySpec {
   modality: "tap" | "drag_drop" | null;
   decision_types: Record<string, string | null>;
   theme: string;
+  prompt_text: string; // from the offline content bank (docs/PLAN.md Phase 7), not hardcoded
+  encouragement: string[];
   item_set_id: string | null;
   items: ActivityItem[];
   is_intervention: boolean;
@@ -122,11 +124,18 @@ export interface SessionHistoryItem {
   end_reason: string | null;
 }
 
+export interface InterestSummary {
+  theme_code: string;
+  theme_label: string;
+  level: "high_interest" | "steady" | "still_building" | "still_discovering";
+}
+
 export interface ChildSummary {
   learning_minutes_total: number;
   activities_completed: number;
   domains: DomainProgress[];
   topics_to_review: TopicToReview[];
+  interests: InterestSummary[];
   todays_suggestions: Recommendation[];
   recent_sessions: SessionHistoryItem[];
   recommended_session_minutes: number | null;

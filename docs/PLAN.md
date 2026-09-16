@@ -144,6 +144,58 @@ contribution. Features may be cut; that may not.
   - 10 new tests (engagement state classification x4, intervention triggering +
     no-stacking + outcome attribution x3, intervention outcomes feed the same
     EffectEstimator x1, session-length recommendation x3) — **36/36 total passing.**
+- **Phase 7 — done.** Offline content bank + theme as a real, randomized axis.
+  - **No runtime API cost, by design** (explicit project constraint): all themed
+    text is generated ONCE by `content/generator/generate_theme_content.py`, a
+    standalone offline script, never called from the running app. It best-effort
+    tries a local Ollama model (3s timeout, `llama3.2`) and falls back to a
+    deterministic template on any failure — Ollama wasn't installed on this
+    machine, so all 4 themes used the template path. Output is validated (word
+    count ≤8, banned-word list, no idioms/sarcasm — README's "literal language"
+    requirement for this population) and written once to
+    `content/bank/theme_content.json`, a static file the backend reads at
+    request time via `app/services/content_bank.py` (`lru_cache`d, falls back to
+    a generic string if a theme is missing or not `review_status: approved`).
+  - `theme` is now a real 4th entry in `ExperimentManager.ACTIVE_AXIS_CODES`
+    (`dino`/`space`/`ocean`/`cars`), assigned via the same Thompson-sampling
+    `choose_arm` as `teaching_method`/`modality` — not inferred from which theme
+    a child happens to click, an actual randomized comparison per README §6/§7.
+    `scripts/seed.py` now builds one matched item set per theme (4, up from 2)
+    in the same `match_group`, so the comparison is never confounded by
+    difficulty.
+  - `DecisionEngine.decide` resolves the chosen theme once per activity and
+    threads it through: a fresh pick uses `matched_item_set(topic_id,
+    theme_id=...)`; continuing a due retention probe reuses the probe's own
+    original theme instead (Phase 5's rule takes priority). `prompt_text` and
+    `encouragement` are pulled from `content_bank.get_theme_content` and put on
+    `ActivitySpec` so the frontend never hardcodes them.
+  - Parent-facing **Interests** summary (README §2A #10 — "dynamically
+    discovered interests"): `parent_service.interest_summary` ranks the theme
+    axis's per-arm posteriors and reports only a friendly tier
+    (`high_interest`/`steady`/`still_building`/`still_discovering`) — never the
+    raw percentage or posterior mean, which stays educator-only per README §2A/
+    §2B. Below `MIN_EVIDENCE_TRIALS` (8) a theme is always `still_discovering`,
+    regardless of its early mean, so a lucky first guess can't read as a
+    confirmed preference.
+  - Frontend wired end-to-end, not just the backend: `ActivitySpec` gained
+    `prompt_text`/`encouragement`; `CountingScene` and `ChildScreen` render them
+    instead of a hardcoded prompt/celebration string; the parent dashboard
+    gained an "Interests" card (theme chips + tier label, no numbers).
+  - 7 new backend tests (theme actually randomizes across many decisions rather
+    than defaulting to one value, item-set items genuinely belong to the chosen
+    theme, prompt text matches the content bank and differs by theme, a
+    confirmed theme winner is exploited thereafter, every activity's theme
+    assignment is auditable, interest summary is empty with no evidence yet,
+    interest summary surfaces a confirmed winner as `high_interest` with no raw
+    numbers in the payload) — **43/43 total passing.**
+  - Verified live end-to-end against the running server (not just tests): 12
+    real rounds (answered, not just fetched) showed all 4 themes being explored;
+    `/parent/children/{id}/summary` returned a real ranked `interests` list from
+    that evidence; the web child app rendered theme-specific text in the
+    browser ("How many fish friends?" for `ocean`, guide "Splash") and the
+    theme-specific encouragement line after a correct answer ("Great job!
+    Splash is doing a happy dance!"); the parent dashboard's new Interests card
+    rendered the same evidence as friendly chips.
 
 ---
 

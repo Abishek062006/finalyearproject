@@ -1,0 +1,48 @@
+{
+  "themes": {
+    "dino": {
+      "guide_name": "Rex",
+      "counting_prompt": "How many dinosaur friends?",
+      "encouragement": [
+        "Great job! Rex is doing a happy dance!",
+        "Rex says well done!",
+        "You did it! Nice work!"
+      ],
+      "source": "template",
+      "review_status": "approved"
+    },
+    "space": {
+      "guide_name": "Astro",
+      "counting_prompt": "How many rockets?",
+      "encouragement": [
+        "Great job! Astro is doing a happy dance!",
+        "Astro says well done!",
+        "You did it! Nice work!"
+      ],
+      "source": "template",
+      "review_status": "approved"
+    },
+    "ocean": {
+      "guide_name": "Splash",
+      "counting_prompt": "How many fish friends?",
+      "encouragement": [
+        "Great job! Splash is doing a happy dance!",
+        "Splash says well done!",
+        "You did it! Nice work!"
+      ],
+      "source": "template",
+      "review_status": "approved"
+    },
+    "cars": {
+      "guide_name": "Turbo",
+      "counting_prompt": "How many race cars?",
+      "encouragement": [
+        "Great job! Turbo is doing a happy dance!",
+        "Turbo says well done!",
+        "You did it! Nice work!"
+      ],
+      "source": "template",
+      "review_status": "approved"
+    }
+  }
+}

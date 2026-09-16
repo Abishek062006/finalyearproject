@@ -148,10 +148,11 @@ export function ChildScreen({ childId, onExit }: { childId: string; onExit: () =
   const theme = (activity.spec.theme as ThemeCode) ?? "dino";
   const choices = [item.answer.count, ...item.distractors];
 
+  const encouragement = activity.spec.encouragement;
   const guideText =
     phase === "feedback"
       ? lastCorrect
-        ? "Great job! 🎉"
+        ? encouragement[itemIndex % encouragement.length] ?? "Great job! 🎉"
         : "Almost! Let's try another one."
       : "Let's play!";
 
@@ -168,7 +169,7 @@ export function ChildScreen({ childId, onExit }: { childId: string; onExit: () =
 
       <GuideBubble theme={theme} text={guideText} />
 
-      <CountingScene theme={theme} count={item.answer.count} />
+      <CountingScene theme={theme} count={item.answer.count} promptText={activity.spec.prompt_text} />
 
       {activity.spec.modality === "drag_drop" ? (
         // key=item.id forces a clean remount per item, so the one-time

@@ -33,6 +33,11 @@ THEMES = [
 AXES = [
     ("teaching_method", "How new items are taught", ["errorless", "try_then_correct"]),
     ("modality", "How the child responds", ["tap", "drag_drop"]),
+    # docs/PLAN.md Phase 7: interest becomes a REAL randomized-comparison
+    # axis instead of a static default inferred from click counts (README
+    # §6/§7) — arm codes are theme codes, so a chosen arm maps straight to
+    # a Theme row via matching `code`.
+    ("theme", "Which interest theme is shown", [t[0] for t in THEMES]),
 ]
 
 # Not in ACTIVE_AXIS_CODES (app/engine/experiment_manager.py) — this one is
@@ -41,7 +46,7 @@ AXES = [
 # (docs/PLAN.md Phase 6 / README §16). Same Thompson-sampling machinery,
 # different trigger.
 INTERVENTION_AXIS = ("intervention", "Which support helps them re-engage", ["mini_game", "interest_injection", "modality_switch", "break"])
-SAFE_DEFAULT_ARMS = {"try_then_correct", "tap", "break"}
+SAFE_DEFAULT_ARMS = {"try_then_correct", "tap", "break", "dino"}
 
 
 def seed() -> None:
@@ -113,10 +118,11 @@ def seed() -> None:
             )
         )
 
-        # Two matched item sets so a theme comparison (dino vs space) is
-        # legitimate from day one: same size, same difficulty mean, same
-        # answers -- only the theme differs. See docs/SCHEMA.md §3.
-        for theme_code in ("dino", "space"):
+        # One matched item set per theme so the theme axis (docs/PLAN.md
+        # Phase 7) has a legitimate 4-way comparison from day one: same
+        # size, same difficulty mean, same answers -- only the theme
+        # differs. See docs/SCHEMA.md §3.
+        for theme_code, *_ in THEMES:
             item_set = ItemSet(
                 topic_id=numbers_topic.id,
                 match_group="num_1_5_intro_v1",
@@ -144,7 +150,7 @@ def seed() -> None:
         print(f"  domains: {len(DOMAINS)}")
         print(f"  themes:  {len(THEMES)}")
         print(f"  axes:    {[a[0] for a in AXES]} + intervention (conditional)")
-        print("  topic:   num_1_5 with 2 matched item sets (dino / space), 5 items each")
+        print(f"  topic:   num_1_5 with {len(THEMES)} matched item sets (one per theme), 5 items each")
     finally:
         db.close()
 

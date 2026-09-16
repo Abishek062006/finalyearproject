@@ -15,6 +15,15 @@ function formatDate(iso: string): string {
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) + " · " + d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 }
 
+// README §2A #10: "dynamically discovered interests" — friendly labels only,
+// never the raw percentages behind them (docs/PLAN.md Phase 7).
+const INTEREST_LEVEL_LABEL: Record<string, string> = {
+  high_interest: "Loves this!",
+  steady: "Enjoys this",
+  still_building: "Still warming up",
+  still_discovering: "Still discovering",
+};
+
 export function DashboardScreen({ childId, onBack, onOpenConsent }: { childId: string; onBack: () => void; onOpenConsent: () => void }) {
   const [summary, setSummary] = useState<ChildSummary | null>(null);
   const [error, setError] = useState("");
@@ -83,6 +92,20 @@ export function DashboardScreen({ childId, onBack, onOpenConsent }: { childId: s
               </View>
             ))}
           </Card>
+
+          {summary.interests.length > 0 && (
+            <Card>
+              <SectionLabel>Interests</SectionLabel>
+              <View style={styles.interestRow}>
+                {summary.interests.map((i) => (
+                  <View key={i.theme_code} style={styles.interestChip}>
+                    <Text style={styles.interestChipLabel}>{i.theme_label}</Text>
+                    <Text style={styles.interestChipLevel}>{INTEREST_LEVEL_LABEL[i.level] ?? i.level}</Text>
+                  </View>
+                ))}
+              </View>
+            </Card>
+          )}
 
           <Card>
             <SectionLabel>Today's suggestions</SectionLabel>
@@ -170,4 +193,8 @@ const styles = StyleSheet.create({
   reviewPercent: { fontSize: 15, fontWeight: "700", color: colors.primaryDark },
   historyRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 },
   historyDate: { fontSize: 14, color: colors.textPrimary },
+  interestRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  interestChip: { backgroundColor: "#F6EFE0", borderRadius: 14, paddingVertical: 8, paddingHorizontal: 14, alignItems: "center" },
+  interestChipLabel: { fontSize: 15, fontWeight: "700", color: colors.textPrimary },
+  interestChipLevel: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
 });
