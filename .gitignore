@@ -1,0 +1,21 @@
+# Python
+backend/.venv/
+__pycache__/
+*.pyc
+backend/aura_dev.db
+backend/.pytest_cache/
+
+# Node / Expo
+app/node_modules/
+app/.expo/
+app/dist/
+app/web-build/
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+.vscode/
+
+# Env
+.env
+.env.local

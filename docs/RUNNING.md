@@ -1,0 +1,64 @@
+# Running AURA locally
+
+Two processes: the FastAPI backend (SQLite, no Docker) and the Expo app.
+
+## Backend
+
+```bash
+cd backend
+python3.11 -m venv .venv        # first time only
+.venv/bin/pip install -r requirements.txt   # first time only
+.venv/bin/python -m scripts.seed            # (re)seeds curriculum + resets the DB
+.venv/bin/uvicorn app.main:app --reload --port 8000
+```
+
+- API docs: http://localhost:8000/docs
+- Health check: http://localhost:8000/health
+- Re-run `scripts.seed` any time to reset to a clean state — it drops and
+  recreates all tables (dev-only convenience, see the script's docstring).
+
+Run the test suite (5 tests covering the vertical slice + the research
+guardrails from docs/SCHEMA.md §9):
+
+```bash
+cd backend && .venv/bin/python -m pytest tests/ -v
+```
+
+## App (Expo)
+
+```bash
+cd app
+npm install       # first time only
+npm run web       # browser, fastest for iteration
+# or: npm start    then press i (iOS) / a (Android)
+```
+
+The child screen calls `POST /dev/quickstart` on load to create a throwaway
+parent + child (no auth yet — see docs/PLAN.md Phase 3), starts a session,
+and renders whatever `ActivitySpec` the backend's DecisionEngine returns.
+
+**Note on `Platform.OS` base URL** (`app/src/shared/api.ts`): `localhost`
+works for web and the iOS simulator; an Android emulator needs `10.0.2.2`
+(already handled); a **real tablet** on the same Wi-Fi needs your machine's
+LAN IP instead of `localhost` — edit `DEV_HOST` in that file.
+
+A debug strip at the bottom of the child screen shows the live decision
+(topic, difficulty, method, modality, and whether each was `explore` or
+`exploit`) — remove it once this stops being a research-debugging build.
+
+## Known verification gap: drag-and-drop in a browser
+
+The `drag_drop` modality (`app/src/child/DragDropAnswer.tsx`) uses a standard
+React Native `PanResponder` + `Animated.ValueXY` drag gesture. This has been
+verified to render correctly, but **automated browser mouse-drag simulation
+did not reliably deliver a release event that `PanResponder` recognized**
+during testing (confirmed via console logging: `onPanResponderRelease` never
+fired for a simulated drag, while a real subsequent manual test of the `tap`
+modality worked immediately). This looks like a gap between the browser
+automation tool's synthetic mouse events and `react-native-web`'s responder
+system, not an app bug — the same code is the standard, long-established
+pattern for RN drag gestures.
+
+**Action before trusting this in the pilot:** verify `drag_drop` manually
+with a real finger on an iOS/Android device or simulator (docs/PLAN.md
+Phase 2 acceptance test), not just in a desktop browser.

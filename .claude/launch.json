@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "aura-app",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd app && npx expo start --web --port 19006"],
+      "port": 19006
+    }
+  ]
+}
