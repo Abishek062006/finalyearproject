@@ -99,7 +99,7 @@ export interface TopicToReview {
   topic_id: string;
   topic_code: string;
   topic_label: string;
-  mastery_percent: number;
+  retention_percent: number; // forgetting-curve estimate (docs/PLAN.md Phase 5), not raw mastery
 }
 
 export interface Recommendation {

@@ -106,7 +106,7 @@ export function DashboardScreen({ childId, onBack, onOpenConsent }: { childId: s
               summary.topics_to_review.map((t) => (
                 <View key={t.topic_id} style={styles.reviewRow}>
                   <Text style={styles.reviewLabel}>{t.topic_label}</Text>
-                  <Text style={styles.reviewPercent}>{t.mastery_percent}%</Text>
+                  <Text style={styles.reviewPercent}>{t.retention_percent}%</Text>
                 </View>
               ))
             )}

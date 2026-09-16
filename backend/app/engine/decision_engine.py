@@ -24,6 +24,7 @@ from app.engine.difficulty_model import DifficultyModel, RecentPerformance
 from app.engine.effect_estimator import EffectEstimator
 from app.engine.experiment_manager import ArmChoice, ExperimentManager
 from app.engine.learner_model import LearnerModel
+from app.engine.retention_model import RetentionModel
 from app.engine.safety import DistressMonitor, TherapistLocks
 from app.engine.session_planner import SessionPlanner
 from app.models.curriculum import ActivityTemplate, Item, ItemSet
@@ -42,6 +43,7 @@ class ActivitySpec:
     theme_code: str
     item_set_id: str | None
     items: list[dict]
+    probe_ids: list[str]  # ScheduledProbe rows this activity fulfills, if any (docs/PLAN.md Phase 5)
 
 
 class DecisionEngine:
@@ -52,6 +54,7 @@ class DecisionEngine:
         self.difficulty_model = DifficultyModel()
         self.experiments = ExperimentManager(db, random_seed=random_seed)
         self.effects = EffectEstimator(db)
+        self.retention_model = RetentionModel(db)
         self.locks = TherapistLocks(db)
         self.distress = DistressMonitor()
         self._rng = random.Random(random_seed)
@@ -135,7 +138,22 @@ class DecisionEngine:
             recent=RecentPerformance(accuracy=mastery.p, avg_response_time_ms=4000, avg_attempts=1, n=mastery.n_trials),
         )
 
-        item_set = self.experiments.matched_item_set(topic_choice.topic_id, theme_id=None)
+        # If this topic is due for revision, prefer the exact item set a
+        # pending probe was scheduled against — testing recall of the SAME
+        # material that was taught, rather than a fresh random pick, which
+        # would confound "did they retain it" with "is this just easier"
+        # (docs/PLAN.md Phase 5). Audit probes (delay_days=0) carry no
+        # item_set_id by design (README §13: a spot-check on the topic in
+        # general, not tied to one teaching decision) and fall through to a
+        # normal random matched set.
+        due_probes = self.retention_model.due_probes_for_topic(child_id, topic_choice.topic_id)
+        probe_item_set_id = next((p.item_set_id for p in due_probes if p.item_set_id), None)
+
+        if probe_item_set_id is not None:
+            item_set = self.db.query(ItemSet).filter_by(id=probe_item_set_id).one_or_none()
+        else:
+            item_set = self.experiments.matched_item_set(topic_choice.topic_id, theme_id=None)
+
         items = []
         if item_set is not None:
             rows = self.db.query(Item).filter_by(item_set_id=item_set.id).all()
@@ -151,4 +169,5 @@ class DecisionEngine:
             theme_code=DEFAULT_THEME_CODE,
             item_set_id=item_set.id if item_set else None,
             items=items,
+            probe_ids=[p.id for p in due_probes],
         )

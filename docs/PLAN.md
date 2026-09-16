@@ -59,6 +59,52 @@ contribution. Features may be cut; that may not.
   - 6 new backend tests (drift detection, lock "latest wins", educator link/profile/
     access-control, lock enforcement via the session API, topic assignment honored
     by the session API, clean 404s for bad topic/axis codes) — 15/15 total passing.
+- **Phase 5 — done.** RetentionModel, delayed-probe delivery, audit probes.
+  - `RetentionModel`: half-life regression (R(t) = retention_estimate · 2^(−t/half_life),
+    the same mechanism behind Anki/FSRS). A correct answer roughly doubles the
+    half-life; an incorrect one halves it. Scaling by `retention_estimate` (not a
+    bare `2^0`) matters: without it, a wrong answer's retention reads as "fully
+    retained" at the instant of the mistake, since t=0.
+  - `SessionPlanner.next_topic` priority order is now: educator assignment →
+    earliest due revision probe → lowest mastery.
+  - `DecisionEngine` prefers the **exact item set** a due probe was scheduled
+    against (not a fresh random pick), so a delayed check tests recall of the
+    actual taught material rather than confounding retention with difficulty.
+  - Delayed outcomes close the loop from Phase 1's schema design: completing a
+    fresh (non-probe) activity schedules a 3-day and 7-day `ScheduledProbe` per
+    active-axis assignment; answering a due probe records `retention_3d`/
+    `retention_7d` `Outcome` rows attributed back to the **original** teaching
+    assignment, not the probe's own. Verified live end-to-end against the running
+    server (not just tests): a real assignment from the original teaching activity
+    received real `retention_3d` outcomes days "later" (time-travelled via `due_at`).
+  - Audit probes (`delay_days=0`): scheduled at `end_session`, independent of
+    confidence — a topic the model currently believes is mastered gets an
+    occasional spot-check regardless, so the system can actually notice being wrong.
+  - `parent_service.topics_to_review` now reads `RetentionModel.due_for_revision`
+    instead of a raw mastery threshold; the API/schema field was honestly renamed
+    `mastery_percent` → `retention_percent` end-to-end (backend schema, frontend
+    types, frontend display) rather than kept as a misleading name.
+  - **Serious pre-existing bug found and fixed, unrelated to retention itself:**
+    `LearnerModel.update`'s alpha/beta reconstruction (`alpha = PRIOR_ALPHA +
+    mean·n`) has an exact fixed point at mean=0.6 for the default prior — after
+    the first update, EVERY subsequent correct answer left mastery stuck at
+    0.6 forever, no matter how many more followed. Found because audit probes
+    never fired in testing (mastery could never reach the 0.85 threshold). Fixed
+    to the correct reconstruction (`alpha = mean · (PRIOR_ALPHA+PRIOR_BETA+n)`);
+    verified against the closed-form Beta-Bernoulli posterior mean exactly.
+    This bug affected every mastery estimate computed since Phase 2 — difficulty
+    adaptation, "topics to review" (old version), and the educator dashboard's
+    domain percentages were all silently capped near 0.6 for any child with more
+    than one or two correct answers in a row.
+  - Also fixed two test-authoring bugs while building this (SQLAlchemy identity-
+    map aliasing across two "before/after" ORM object references comparing an
+    object against its own later mutation; a wrong expected-count assumption for
+    per-axis outcome fan-out) — both are documented inline in the test file.
+  - 11 new tests (retention decay, wrong-answer-lowers-retention-immediately,
+    half-life growth/shrink, due-for-revision filtering, probe scheduling +
+    dedup, full probe delivery + outcome attribution, audit probe scheduling,
+    parent summary reflects retention, plus 2 dedicated LearnerModel regression
+    tests) — 26/26 total passing.
 
 ---
 

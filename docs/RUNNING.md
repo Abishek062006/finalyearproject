@@ -39,6 +39,16 @@ and a few interests) → **Play** to hand the tablet to the child, or
 domain, today's suggestion, topics to review, session history) and
 **Privacy & camera settings** (append-only consent — see docs/SCHEMA.md §2).
 
+**Phase 5 (retention):** happens automatically, no new screen. Finishing a
+topic's matched item set schedules a 3-day and 7-day check-back per active
+axis; once due, it takes priority over new material (`topic_reason:
+"due_revision"` in the debug strip) and reuses the exact original item set.
+Answering it feeds a `retention_3d`/`retention_7d` outcome back to the
+original teaching decision — this is what "topics to review" (parent
+dashboard) is now actually based on, not raw accuracy. To see it without
+waiting 3 real days, push a `scheduled_probes.due_at` row into the past
+directly in `aura_dev.db` and fetch `next-activity` again.
+
 **Phase 4 flow (educator/counsellor):** on the registration screen, choose
 "Teacher / counsellor" instead of "Parent / guardian" — this routes to a
 separate, more detailed dashboard (README §2B) instead of the parent's.

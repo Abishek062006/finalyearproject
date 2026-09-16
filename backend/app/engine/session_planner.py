@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session as DBSession
 
 from app.engine.learner_model import LearnerModel
+from app.engine.retention_model import RetentionModel
 from app.models.adults import Override
 from app.models.curriculum import Topic
 
@@ -26,6 +27,7 @@ class SessionPlanner:
     def __init__(self, db: DBSession):
         self.db = db
         self.learner_model = LearnerModel(db)
+        self.retention_model = RetentionModel(db)
 
     def _active_topic_override(self, child_id: str) -> Topic | None:
         """README §21/§33: an educator can assign a topic, overriding the
@@ -47,13 +49,19 @@ class SessionPlanner:
         return self.db.query(Topic).filter_by(id=topic_id).one_or_none()
 
     def next_topic(self, child_id: str) -> TopicChoice:
-        """Phase 1: pick the topic with the lowest current mastery among all
-        seeded topics (README §9), unless an educator has assigned one.
-        Revision scheduling (RetentionModel) is layered on in a later phase
-        without changing this return type."""
+        """Priority order (README §9/§21/§33), all deterministic:
+        1. an educator's explicit assignment, while unexpired
+        2. a due revision probe (docs/PLAN.md Phase 5) — something the
+           child is at risk of forgetting takes priority over new material
+        3. the topic with the lowest current mastery
+        """
         assigned = self._active_topic_override(child_id)
         if assigned is not None:
             return TopicChoice(topic_id=assigned.id, topic_code=assigned.code, reason="educator_assigned")
+
+        due_topic = self.retention_model.earliest_due_topic(child_id)
+        if due_topic is not None:
+            return TopicChoice(topic_id=due_topic.id, topic_code=due_topic.code, reason="due_revision")
 
         topics = self.db.query(Topic).all()
         if not topics:

@@ -63,12 +63,25 @@ class LearnerModel:
     def update(self, child_id: str, topic_id: str, correct: bool) -> Mastery:
         """One Bayesian update per answer. Reconstructs alpha/beta from the
         stored mean+trials (avoids a second pair of columns for the same
-        information), updates, and writes back."""
+        information), updates, and writes back.
+
+        The reconstruction must split the TOTAL pseudo-count
+        (PRIOR_ALPHA + PRIOR_BETA + n) in the ratio of the current mean —
+        alpha = mean * total, beta = (1-mean) * total — not add mean*n on
+        top of a separate fixed prior (alpha = PRIOR_ALPHA + mean*n). That
+        second form looks similar but is a different, wrong recurrence: it
+        has an exact fixed point at mean = (PRIOR_ALPHA+1)/(PRIOR_ALPHA+PRIOR_BETA+1)
+        (0.6 for the default prior) for ANY n — i.e. after that first
+        update, every further correct answer left mean permanently stuck at
+        0.6 forever, no matter how many more were answered correctly. Caught
+        via app/engine/retention_model.py's audit-probe threshold never
+        being reached in testing (tests/test_retention.py).
+        """
         row = self._row(child_id, topic_id)
         n = max(row.trials, 0)
-        # Recover pseudo-counts implied by the stored mean, seeded from the prior.
-        alpha = self.PRIOR_ALPHA + row.p_mastery * n
-        beta = self.PRIOR_BETA + (1 - row.p_mastery) * n
+        total_pseudo_count = self.PRIOR_ALPHA + self.PRIOR_BETA + n
+        alpha = row.p_mastery * total_pseudo_count
+        beta = (1 - row.p_mastery) * total_pseudo_count
 
         if correct:
             alpha += 1

@@ -1,22 +1,17 @@
 """
 Parent-facing business logic. README §2A: understandable terms, no raw model
-internals. The "recommendation" here is deliberately a simple rule (lowest
-attempted mastery) — RetentionModel-based revision scheduling is Phase 5
-(docs/PLAN.md); this is the honest Phase 3 version, not a placeholder pretending
-to be more than it is.
+internals.
 """
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session as DBSession
 
+from app.engine.retention_model import RetentionModel
 from app.models.adults import Recommendation
 from app.models.curriculum import Domain, Theme, Topic
 from app.models.identity import Child, Consent, EducatorLink, Guardianship, User
 from app.models.profile_state import InterestState, MasteryState
 from app.models.runtime import ActivityInstance, Session as SessionModel
-
-ATTEMPTED_MASTERY_THRESHOLD = 0.65  # below this (and attempted at least once) -> "needs review"
-MIN_TRIALS_TO_COUNT = 1
 
 
 def create_child(db: DBSession, owner_user_id: str, nickname: str, birth_year_month: str, initial_interest_codes: list[str]) -> Child:
@@ -83,13 +78,16 @@ def domain_progress(db: DBSession, child_id: str) -> list[dict]:
 
 
 def topics_to_review(db: DBSession, child_id: str, limit: int = 5) -> list[dict]:
-    out = []
-    for topic in db.query(Topic).all():
-        percent, trials = _topic_mastery_percent(db, child_id, topic.id)
-        if trials >= MIN_TRIALS_TO_COUNT and percent < ATTEMPTED_MASTERY_THRESHOLD * 100:
-            out.append({"topic_id": topic.id, "topic_code": topic.code, "topic_label": topic.label, "mastery_percent": percent})
-    out.sort(key=lambda t: t["mastery_percent"])
-    return out[:limit]
+    """docs/PLAN.md Phase 5: driven by the actual forgetting-curve estimate
+    (RetentionModel), not a raw mastery threshold — a topic the child once
+    mastered but is now at risk of forgetting belongs here even if their
+    lifetime accuracy on it still looks high; a topic never attempted does
+    not, even at the model's default 50% prior."""
+    candidates = RetentionModel(db).due_for_revision(child_id, limit=limit)
+    return [
+        {"topic_id": c.topic_id, "topic_code": c.topic_code, "topic_label": c.topic_label, "retention_percent": c.retention_percent}
+        for c in candidates
+    ]
 
 
 def ensure_todays_suggestion(db: DBSession, child_id: str) -> None:

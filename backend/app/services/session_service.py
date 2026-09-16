@@ -13,10 +13,12 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session as DBSession
 
 from app.engine.decision_engine import DecisionEngine
+from app.engine.retention_model import RetentionModel
 from app.models.runtime import (
     ActivityInstance,
     ActivityInstanceAssignment,
     Interaction,
+    ScheduledProbe,
     Session as SessionModel,
 )
 from app.models.experiment import Outcome
@@ -54,6 +56,7 @@ def next_activity(db: DBSession, session_id: str) -> ActivityInstance:
         "theme": spec.theme_code,
         "item_set_id": spec.item_set_id,
         "items": spec.items,
+        "probe_ids": spec.probe_ids,
     }
 
     activity = ActivityInstance(
@@ -80,6 +83,14 @@ def next_activity(db: DBSession, session_id: str) -> ActivityInstance:
         )
         if assignment:
             db.add(ActivityInstanceAssignment(activity_instance_id=activity.id, assignment_id=assignment.id))
+
+    # Mark every ScheduledProbe this activity fulfills as delivered, so it
+    # won't be picked again (docs/PLAN.md Phase 5). The actual retention
+    # outcome is recorded per-answer in record_answer, once we know correct/incorrect.
+    if spec.probe_ids:
+        for probe in db.query(ScheduledProbe).filter(ScheduledProbe.id.in_(spec.probe_ids)).all():
+            probe.status = "delivered"
+            probe.delivered_activity_instance_id = activity.id
 
     db.commit()
     db.refresh(activity)
@@ -112,10 +123,31 @@ def record_answer(
     )
     db.add(interaction)
 
+    retention_model = RetentionModel(db)
     LearnerModel(db).update(session.child_id, activity.topic_id, correct)
+    retention_model.update(session.child_id, activity.topic_id, correct)  # every answer is evidence for the forgetting curve
 
     for link in db.query(ActivityInstanceAssignment).filter_by(activity_instance_id=activity_instance_id):
         db.add(Outcome(assignment_id=link.assignment_id, kind="immediate", value=1.0 if correct else 0.0, n=1))
+
+    # If this activity is fulfilling one or more delayed retention probes
+    # (docs/PLAN.md Phase 5), attribute the result back to the ORIGINAL
+    # teaching assignment that scheduled each one — this is the delayed-
+    # outcome half of the research design (docs/ARCHITECTURE.md §5). Audit
+    # probes (delay_days=0) have no source assignment to attribute to; they
+    # exist purely to correct LearnerModel/RetentionModel's own beliefs.
+    probe_ids: list[str] = activity.spec.get("probe_ids") or []
+    if probe_ids:
+        for probe in db.query(ScheduledProbe).filter(ScheduledProbe.id.in_(probe_ids)).all():
+            if probe.delay_days in (3, 7) and probe.source_assignment_id:
+                db.add(
+                    Outcome(
+                        assignment_id=probe.source_assignment_id,
+                        kind=f"retention_{probe.delay_days}d",
+                        value=1.0 if correct else 0.0,
+                        n=1,
+                    )
+                )
 
     # An activity is "completed" once every item in its matched set has been
     # answered — this is what the parent dashboard's "activities completed"
@@ -130,6 +162,19 @@ def record_answer(
         activity.completed = True
         activity.ended_at = now
 
+        # Freshly-practiced (not itself a probe delivery) -> schedule 3-day
+        # and 7-day check-backs per teaching assignment involved, so future
+        # results can be attributed back to this specific method/modality
+        # (docs/PLAN.md Phase 5). Probe-delivery activities don't chain into
+        # further probes here — that would need a full ongoing spaced-
+        # repetition scheduler, out of this phase's scope.
+        if not probe_ids:
+            assignment_ids = [
+                link.assignment_id
+                for link in db.query(ActivityInstanceAssignment).filter_by(activity_instance_id=activity_instance_id).all()
+            ]
+            retention_model.schedule_probes_for_assignments(session.child_id, activity.topic_id, activity.item_set_id, assignment_ids)
+
     db.commit()
     db.refresh(interaction)
     return interaction
@@ -137,6 +182,13 @@ def record_answer(
 
 def end_session(db: DBSession, session_id: str, end_reason: str = "completed") -> SessionModel:
     session = db.query(SessionModel).filter_by(id=session_id).one()
+
+    # README §13/docs/PLAN.md Phase 5: an occasional, confidence-independent
+    # spot-check on something the model currently believes is mastered.
+    # A natural point to consider this is once per finished session, not
+    # mid-lesson.
+    RetentionModel(db).maybe_schedule_audit_probes(session.child_id)
+
     session.ended_at = datetime.now(timezone.utc)
     session.end_reason = end_reason
     if session.started_at:

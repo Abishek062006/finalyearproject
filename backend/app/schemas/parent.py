@@ -31,7 +31,7 @@ class TopicToReview(BaseModel):
     topic_id: str
     topic_code: str
     topic_label: str
-    mastery_percent: int
+    retention_percent: int  # RetentionModel's forgetting-curve estimate, not raw mastery (docs/PLAN.md Phase 5)
 
 
 class RecommendationOut(BaseModel):
