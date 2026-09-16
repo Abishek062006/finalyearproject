@@ -33,13 +33,23 @@ class TherapistLocks:
         self.db = db
 
     def allowed_arms(self, child_id: str, axis_id: str, all_arm_ids: list[str]) -> list[str]:
-        """An educator can block specific arms per child (README §21). Returns
-        the subset of all_arm_ids that are not blocked. If everything is
-        blocked, callers fall back to the axis's safe-default arm."""
-        blocked = {
-            lock.arm_id
-            for lock in self.db.query(ArmLock)
-            .filter_by(child_id=child_id, axis_id=axis_id, allow=False)
+        """An educator can block (or later re-allow) specific arms per child
+        (README §21). Locks are append-only, like consent (docs/SCHEMA.md
+        §6) — so the current state of an arm is whichever lock row for it
+        was written most recently, NOT "was it ever blocked". Reading only
+        allow=False rows here would mean an educator un-blocking an arm
+        (a new allow=True row) could never take effect; that was a real bug,
+        fixed by taking the latest row per arm.
+
+        If everything ends up blocked, callers fall back to the axis's safe-
+        default arm."""
+        rows = (
+            self.db.query(ArmLock)
+            .filter_by(child_id=child_id, axis_id=axis_id)
+            .order_by(ArmLock.created_at.desc())
             .all()
-        }
-        return [a for a in all_arm_ids if a not in blocked]
+        )
+        latest_allow: dict[str, bool] = {}
+        for lock in rows:
+            latest_allow.setdefault(lock.arm_id, lock.allow)
+        return [a for a in all_arm_ids if latest_allow.get(a, True)]

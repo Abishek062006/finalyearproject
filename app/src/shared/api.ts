@@ -133,6 +133,51 @@ export interface ConsentState {
   granted_at: string;
 }
 
+export interface EducatorLinkInfo {
+  id: string;
+  display_name: string;
+  email: string;
+  role: string;
+}
+
+// ---- Educator ----
+
+export interface ArmEvidence {
+  arm_code: string;
+  label: string;
+  trials: number;
+  accuracy_percent: number;
+  is_current_winner: boolean;
+}
+
+export interface AxisEvidence {
+  axis_code: string;
+  axis_label: string;
+  arms: ArmEvidence[];
+  winner_confidence: number | null;
+  evidence_trials: number;
+}
+
+export interface EducatorChildProfile {
+  child_id: string;
+  nickname: string;
+  domains: DomainProgress[];
+  axes: AxisEvidence[];
+}
+
+export interface Topic {
+  id: string;
+  code: string;
+  label: string;
+  domain_id: string;
+}
+
+export interface LockState {
+  axis_code: string;
+  arm_code: string;
+  allow: boolean;
+}
+
 export const api = {
   quickstartChild: () => request<Child>("/dev/quickstart", { method: "POST" }),
 
@@ -169,6 +214,34 @@ export const api = {
     request<ConsentState>(`/parent/children/${childId}/consent`, {
       method: "POST",
       body: JSON.stringify({ scope, granted }),
+    }),
+
+  linkEducator: (childId: string, educatorEmail: string) =>
+    request<EducatorLinkInfo>(`/parent/children/${childId}/educators`, {
+      method: "POST",
+      body: JSON.stringify({ educator_email: educatorEmail }),
+    }),
+
+  getEducators: (childId: string) => request<EducatorLinkInfo[]>(`/parent/children/${childId}/educators`),
+
+  educatorListChildren: () => request<Child[]>("/educator/children"),
+
+  educatorChildProfile: (childId: string) => request<EducatorChildProfile>(`/educator/children/${childId}/profile`),
+
+  educatorListTopics: () => request<Topic[]>("/educator/topics"),
+
+  educatorAssignTopic: (childId: string, topicCode: string) =>
+    request<{ assigned: boolean }>(`/educator/children/${childId}/assign`, {
+      method: "POST",
+      body: JSON.stringify({ topic_code: topicCode }),
+    }),
+
+  educatorGetLocks: (childId: string) => request<LockState[]>(`/educator/children/${childId}/locks`),
+
+  educatorSetLock: (childId: string, axisCode: string, armCode: string, allow: boolean) =>
+    request<LockState>(`/educator/children/${childId}/locks`, {
+      method: "POST",
+      body: JSON.stringify({ axis_code: axisCode, arm_code: armCode, allow }),
     }),
 
   startSession: (childId: string, plannedMinutes = 15) =>

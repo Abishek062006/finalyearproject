@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session as DBSession
 
 from app.core.security import decode_access_token
 from app.db import get_db
-from app.models.identity import Guardianship, User
+from app.models.identity import EducatorLink, Guardianship, User
 
 bearer_scheme = HTTPBearer()
 
@@ -35,3 +35,17 @@ def require_guardian_of(child_id: str, user: User, db: DBSession) -> None:
     )
     if link is None:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Not a guardian of this child")
+
+
+def require_educator_of(child_id: str, user: User, db: DBSession) -> None:
+    """Raises 403 unless `user` has an active EducatorLink to `child_id`
+    (README §2B: teacher/counsellor dashboard). A guardian is NOT
+    automatically an educator of their own child — the two roles see
+    deliberately different levels of detail (README §2B)."""
+    link = (
+        db.query(EducatorLink)
+        .filter_by(user_id=user.id, child_id=child_id, active=True)
+        .one_or_none()
+    )
+    if link is None:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Not an educator/counsellor for this child")

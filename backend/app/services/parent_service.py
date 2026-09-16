@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session as DBSession
 
 from app.models.adults import Recommendation
 from app.models.curriculum import Domain, Theme, Topic
-from app.models.identity import Child, Consent, Guardianship
+from app.models.identity import Child, Consent, EducatorLink, Guardianship, User
 from app.models.profile_state import InterestState, MasteryState
 from app.models.runtime import ActivityInstance, Session as SessionModel
 
@@ -172,6 +172,34 @@ def get_consents(db: DBSession, child_id: str) -> list[Consent]:
     for row in rows:
         latest_by_scope.setdefault(row.scope, row)
     return list(latest_by_scope.values())
+
+
+def link_educator(db: DBSession, child_id: str, educator_email: str) -> EducatorLink:
+    """README §21/§2B: a parent grants a teacher/counsellor access to their
+    child's detailed dashboard. The educator must already have an account
+    with role='educator' — this is not an invitation flow, just a link."""
+    educator = db.query(User).filter_by(email=educator_email, role="educator").one_or_none()
+    if educator is None:
+        raise ValueError("No educator account found with that email")
+
+    existing = db.query(EducatorLink).filter_by(user_id=educator.id, child_id=child_id).one_or_none()
+    if existing:
+        existing.active = True
+        db.commit()
+        db.refresh(existing)
+        return existing
+
+    link = EducatorLink(user_id=educator.id, child_id=child_id, role="teacher", active=True)
+    db.add(link)
+    db.commit()
+    db.refresh(link)
+    return link
+
+
+def list_educators_for_child(db: DBSession, child_id: str) -> list[User]:
+    links = db.query(EducatorLink).filter_by(child_id=child_id, active=True).all()
+    ids = [l.user_id for l in links]
+    return db.query(User).filter(User.id.in_(ids)).all() if ids else []
 
 
 def update_consent(db: DBSession, child_id: str, user_id: str, scope: str, granted: bool) -> Consent:

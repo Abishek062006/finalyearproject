@@ -76,3 +76,14 @@ class ConsentOut(BaseModel):
 class ConsentUpdateRequest(BaseModel):
     scope: str  # data_collection | camera | research_use
     granted: bool
+
+
+class LinkEducatorRequest(BaseModel):
+    educator_email: str
+
+
+class EducatorLinkOut(BaseModel):
+    id: str
+    display_name: str
+    email: str
+    role: str

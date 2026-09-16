@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, dev, parent, sessions
+from app.api import auth, dev, educator, parent, sessions
 from app.config import settings
 from app.db import init_db
 
@@ -38,5 +38,6 @@ def health() -> dict:
 
 app.include_router(auth.router)
 app.include_router(parent.router)
+app.include_router(educator.router)
 app.include_router(sessions.router)
 app.include_router(dev.router)

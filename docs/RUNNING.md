@@ -39,6 +39,19 @@ and a few interests) → **Play** to hand the tablet to the child, or
 domain, today's suggestion, topics to review, session history) and
 **Privacy & camera settings** (append-only consent — see docs/SCHEMA.md §2).
 
+**Phase 4 flow (educator/counsellor):** on the registration screen, choose
+"Teacher / counsellor" instead of "Parent / guardian" — this routes to a
+separate, more detailed dashboard (README §2B) instead of the parent's.
+A parent must first grant that educator's account access from their
+child's dashboard ("Teacher or counsellor access", by email — the
+educator account must already exist). The educator then sees, per child:
+domain mastery, and per-axis evidence (trials, accuracy, current winner)
+**explicitly labelled as internal model estimates, never a clinical
+measurement** — plus controls to lock/unlock a specific teaching option
+and to assign a topic (honored by the session API for 24 hours). A lock
+set here is genuinely enforced by the live decision engine, not just
+displayed — verified by checking the session API directly after locking.
+
 `POST /dev/quickstart` (creates a throwaway parent + child with no login)
 still exists for backend testing/curl convenience, but the app itself no
 longer uses it — the child screen takes a real `childId` chosen by a

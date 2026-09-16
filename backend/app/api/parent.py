@@ -1,6 +1,6 @@
 """Parent dashboard endpoints (README §2A). Every route checks the caller is
 actually a guardian of the child in question via require_guardian_of."""
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session as DBSession
 
 from app.api.deps import get_current_user, require_guardian_of
@@ -12,6 +12,8 @@ from app.schemas.parent import (
     ConsentOut,
     ConsentUpdateRequest,
     CreateChildRequest,
+    EducatorLinkOut,
+    LinkEducatorRequest,
     RecommendationOut,
     RecommendationResponseRequest,
 )
@@ -58,3 +60,25 @@ def update_consent(
 ):
     require_guardian_of(child_id, user, db)
     return parent_service.update_consent(db, child_id, user.id, req.scope, req.granted)
+
+
+@router.post("/children/{child_id}/educators", response_model=EducatorLinkOut)
+def link_educator(
+    child_id: str, req: LinkEducatorRequest, user: User = Depends(get_current_user), db: DBSession = Depends(get_db)
+):
+    require_guardian_of(child_id, user, db)
+    try:
+        link = parent_service.link_educator(db, child_id, req.educator_email)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc))
+    educator = next(u for u in parent_service.list_educators_for_child(db, child_id) if u.id == link.user_id)
+    return EducatorLinkOut(id=educator.id, display_name=educator.display_name, email=educator.email, role=educator.role)
+
+
+@router.get("/children/{child_id}/educators", response_model=list[EducatorLinkOut])
+def get_educators(child_id: str, user: User = Depends(get_current_user), db: DBSession = Depends(get_db)):
+    require_guardian_of(child_id, user, db)
+    return [
+        EducatorLinkOut(id=e.id, display_name=e.display_name, email=e.email, role=e.role)
+        for e in parent_service.list_educators_for_child(db, child_id)
+    ]

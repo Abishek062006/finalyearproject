@@ -8,6 +8,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { api, ChildSummary } from "../shared/api";
 import { colors, spacing } from "../shared/theme";
 import { Card, ErrorText, ProgressBar, ScreenTitle, SecondaryButton, SectionLabel } from "../shared/ui";
+import { InviteEducatorCard } from "./InviteEducatorCard";
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
@@ -124,6 +125,8 @@ export function DashboardScreen({ childId, onBack, onOpenConsent }: { childId: s
               ))
             )}
           </Card>
+
+          <InviteEducatorCard childId={childId} />
 
           <SecondaryButton title="Privacy & camera settings" onPress={onOpenConsent} />
         </>

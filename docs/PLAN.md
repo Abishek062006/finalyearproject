@@ -33,10 +33,32 @@ contribution. Features may be cut; that may not.
   Navigation is a small hand-rolled screen-state switch in `App.tsx`, not a routing
   library — fine at this size; reconsider (react-navigation) once the educator
   dashboard in Phase 4 adds more screens and back-stack behavior starts to matter.
-- **Phase 4 onward — as planned below**, with the note that its "research engine v1"
-  bullet points are now mostly satisfied by what Phase 2 already built; Phase 4's
-  remaining new work is the **educator dashboard** and any engine pieces not yet
-  covered (drift-triggered re-testing, richer safety tuning).
+- **Phase 4 — done.** Educator/counsellor dashboard, arm locks, topic assignment, and
+  drift-triggered re-testing.
+  - `require_educator_of` (a guardian is NOT automatically an educator of their own
+    child — deliberately different detail levels, README §2B) + parent-side
+    "grant access by email" flow (`POST /parent/children/{id}/educators`).
+  - `EducatorChildProfile`: domain mastery + per-axis evidence (trials, accuracy,
+    current winner), explicitly labelled "internal model estimates" per README §2B.
+  - Educators can lock/unlock arms and assign a topic (honored by `SessionPlanner`
+    for 24h, `reason="educator_assigned"`) — both verified end-to-end, including
+    confirming via curl that a locked modality genuinely never appears again.
+  - **Drift-triggered re-testing** added to `EffectEstimator`: a confirmed winner
+    whose most recent 5 trials have regressed >0.3 below its lifetime average is no
+    longer exploited, reopening exploration — a plain lifetime Bayesian average
+    alone absorbs a real regression far too slowly once evidence has piled up.
+  - **Real bug found and fixed while building this:** `TherapistLocks.allowed_arms`
+    only ever checked for *any* `allow=False` row, so an educator un-blocking an arm
+    (a later `allow=True` row) could never take effect. Locks are now "latest row
+    wins", like consent. Regression test added.
+  - Verified end-to-end in-browser across two logged-in roles: parent registers,
+    creates a child, plays real rounds; a separate educator account registers,
+    the parent grants it access, the educator sees live per-arm evidence generated
+    from those rounds, blocks an arm, and a fresh curl check against the session API
+    confirms the block is genuinely enforced by the live engine.
+  - 6 new backend tests (drift detection, lock "latest wins", educator link/profile/
+    access-control, lock enforcement via the session API, topic assignment honored
+    by the session API, clean 404s for bad topic/axis codes) — 15/15 total passing.
 
 ---
 
