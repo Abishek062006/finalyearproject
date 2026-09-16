@@ -56,9 +56,14 @@ def _find_assignment(db: DBSession, child_id: str, axis_id: str, arm_id: str) ->
     )
 
 
-def next_activity(db: DBSession, session_id: str) -> ActivityInstance:
+def next_activity(db: DBSession, session_id: str, engine: DecisionEngine | None = None) -> ActivityInstance:
+    """`engine` defaults to a fresh, unseeded DecisionEngine — every real
+    caller (the API layer, tests) relies on that. The parameter exists so
+    research/ can inject a seeded engine (reproducible Thompson sampling) or
+    an ablated subclass (docs/PLAN.md Phase 8) without duplicating this
+    persistence logic."""
     session = db.query(SessionModel).filter_by(id=session_id).one()
-    engine = DecisionEngine(db)
+    engine = engine or DecisionEngine(db)
     spec = engine.decide(session.child_id, session_id)
 
     spec_json = {

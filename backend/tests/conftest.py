@@ -40,65 +40,13 @@ def db():
 @pytest.fixture()
 def seeded_db(db):
     """Seeds the same curriculum content as scripts/seed.py, against the
-    test's in-memory engine rather than the dev SQLite file."""
-    from scripts.seed import AXES, DOMAINS, INTERVENTION_AXIS, SAFE_DEFAULT_ARMS, THEMES
-    from app.models.curriculum import ActivityTemplate, Domain, Guide, Item, ItemSet, Theme, Topic
-    from app.models.experiment import Arm, Axis
+    test's in-memory engine rather than the dev SQLite file — via the shared
+    seed_curriculum() helper (docs/PLAN.md Phase 8), also reused by
+    research/db.py so the simulation study runs against the identical
+    curriculum these tests exercise."""
+    from scripts.seed import seed_curriculum
 
-    domains = {}
-    for code, label, order in DOMAINS:
-        d = Domain(code=code, label=label, sort_order=order)
-        db.add(d)
-        domains[code] = d
-    db.flush()
-
-    themes = {}
-    for code, label, asset_path, guide_name, char_type in THEMES:
-        t = Theme(code=code, label=label, asset_path=asset_path)
-        db.add(t)
-        db.flush()
-        db.add(Guide(theme_id=t.id, name=guide_name, character_type=char_type))
-        themes[code] = t
-    db.flush()
-
-    axes = {}
-    for code, label, arm_codes in [*AXES, INTERVENTION_AXIS]:
-        axis = Axis(code=code, label=label, active_default=(code != INTERVENTION_AXIS[0]))
-        db.add(axis)
-        db.flush()
-        for arm_code in arm_codes:
-            db.add(
-                Arm(
-                    axis_id=axis.id,
-                    code=arm_code,
-                    label=arm_code,
-                    is_safe_default=(arm_code in SAFE_DEFAULT_ARMS),
-                )
-            )
-        axes[code] = axis
-    db.flush()
-
-    topic = Topic(domain_id=domains["numeracy"].id, code="num_1_5", label="Numbers 1-5", level="beginner", prerequisites=[])
-    db.add(topic)
-    db.flush()
-
-    db.add(ActivityTemplate(topic_id=topic.id, modality="drag_drop", method_compatible=["errorless", "try_then_correct"], difficulty_min=1, difficulty_max=3, config={}))
-
-    for theme_code in themes:  # one matched item set per theme (docs/PLAN.md Phase 7)
-        item_set = ItemSet(topic_id=topic.id, match_group="num_1_5_intro_v1", difficulty_mean=1.4, size=5)
-        db.add(item_set)
-        db.flush()
-        for answer in (1, 2, 3, 4, 5):
-            db.add(
-                Item(
-                    topic_id=topic.id,
-                    item_set_id=item_set.id,
-                    difficulty=1 if answer <= 3 else 2,
-                    answer={"count": answer},
-                    distractors=[answer + 1] if answer < 5 else [answer - 1],
-                    theme_id=themes[theme_code].id,
-                )
-            )
+    seed_curriculum(db)
     db.commit()
     return db
 

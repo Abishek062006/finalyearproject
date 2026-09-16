@@ -196,6 +196,71 @@ contribution. Features may be cut; that may not.
     theme-specific encouragement line after a correct answer ("Great job!
     Splash is doing a happy dance!"); the parent dashboard's new Interests card
     rendered the same evidence as friendly chips.
+- **Phase 8 — mostly done.** Child simulator, 5 baselines, simulation study,
+  ablation study — all real, executed, producing real numbers in
+  `research/results/`. Replay study infrastructure built and tested; real
+  published data not yet added (needs a human with PlotDigitizer and a
+  paper, not code — see `research/replay/README.md`).
+  - **The "AURA" condition in every study is the literal production
+    `DecisionEngine`**, not a re-implementation — every module in
+    `research/` drives `app.engine.*`/`app.services.*` directly against a
+    throwaway in-memory SQLite DB (no HTTP, no Docker). Two small,
+    backward-compatible production changes made this possible:
+    `scripts/seed.py`'s curriculum-building logic was factored out into
+    `seed_curriculum(db)`, now shared by the real seed script, the pytest
+    fixtures, AND `research/db.py` (one source of truth, removing ~50 lines
+    of drift-prone duplication that existed between the script and
+    `conftest.py` before this phase); `session_service.next_activity`
+    gained an optional `engine` parameter (default: unchanged) so research
+    code can inject a seeded or ablated engine without copying its
+    persistence logic.
+  - `research/simulator/child.py`: a hidden ground-truth answering/distress
+    model — per-child true best method/modality/theme/intervention, drawn
+    independently per axis (matching README §2's evidence that per-child
+    teaching effects are idiosyncratic), plus distress that responds to
+    arm mismatch and recovers under a matching intervention. Mastery itself
+    is NOT modelled here — every condition reads the real `LearnerModel`,
+    so only the "which arm" decision differs between conditions, not how
+    learning is measured.
+  - `research/baselines/`: the 5 systems from README §2 — static,
+    heuristic-adaptive (the "Baseline B" rule-based core originally
+    sketched in this plan's Phase 3 template), correlational personalization
+    (deliberately shown to be no better than chance at finding an
+    individual's true best arm, since the simulator draws it independently
+    of the observable proxy — the exact failure mode AURA exists to avoid),
+    population-level, and expert-manual (a coarse, one-time fixed-order
+    assessment that never re-tests, unlike AURA's drift detection).
+  - `research/ablations.py`: 4 `DecisionEngine` subclasses, each removing
+    exactly one of README §2's named contributions (hierarchical prior /
+    early predictor / safety layer / randomization) — none of it touches
+    `app/engine`, so the shipped product is unaffected.
+  - **Real results** (`research/results/RESULTS.md` has the full honest
+    write-up): AURA and the heuristic baseline form a clearly separated
+    low-regret cluster against the other four baselines; AURA is
+    unambiguously best on distress events (under a quarter of any
+    baseline's) and is the ONLY condition with any engagement-recovery
+    capability at all (67% recovery on genuinely distressed episodes, vs
+    "no mechanism" for every baseline); AURA trades some raw
+    activities-to-mastery speed for this (an honest, expected, explained
+    cost, not a bug). Ablation-wise, removing the early predictor or
+    randomization each roughly triples cumulative regret — the two
+    strongest, clearest findings; removing the hierarchical prior is a
+    smaller, more nuanced effect (slightly worse regret, but reaches a
+    stable correct decision MORE often); removing the safety layer produced
+    a bit-for-bit **null result** in this run, honestly reported with its
+    real mechanistic cause (the simulated distress dynamics never crossed
+    AURA's own conservative estimated-distress trigger threshold even for
+    a deliberately worst-case simulated child) rather than hidden or
+    re-tuned away after the fact.
+  - 15 new sanity tests (`research/tests/`, <1s) — metric math checked
+    against hand-built examples, the ablation engines checked to actually
+    change behaviour, the baseline policies checked against their own
+    design rules, the replay harness checked against a synthetic example.
+    Full backend suite (43/43) reconfirmed unaffected by the two production
+    changes above.
+  - **Not yet done:** paired significance testing on top of the two result
+    tables (the common-random-numbers paired design already in place makes
+    this cheap to add later); real published data in the replay study.
 
 ---
 

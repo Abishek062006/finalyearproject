@@ -1,0 +1,6 @@
+# Additional dependency for research/ only (figures) — install into the SAME
+# backend/.venv used for everything else in this project:
+#   backend/.venv/bin/pip install -r research/requirements.txt
+# Not added to backend/requirements.txt: the shipped product never imports
+# matplotlib, only the offline evaluation scripts in this folder do.
+matplotlib==3.11.2

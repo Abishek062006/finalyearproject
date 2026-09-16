@@ -49,102 +49,111 @@ INTERVENTION_AXIS = ("intervention", "Which support helps them re-engage", ["min
 SAFE_DEFAULT_ARMS = {"try_then_correct", "tap", "break", "dino"}
 
 
+def seed_curriculum(db) -> None:
+    """The actual curriculum-building logic, factored out so it can run
+    against ANY SQLAlchemy session — the real dev DB (below), the pytest
+    in-memory fixture (tests/conftest.py), or a research/ simulation's own
+    throwaway in-memory DB (docs/PLAN.md Phase 8) — without three copies of
+    this drifting apart. Does not commit; the caller owns the transaction."""
+    domains = {}
+    for code, label, order in DOMAINS:
+        d = Domain(code=code, label=label, sort_order=order)
+        db.add(d)
+        domains[code] = d
+    db.flush()
+
+    themes = {}
+    for code, label, asset_path, guide_name, char_type in THEMES:
+        t = Theme(code=code, label=label, asset_path=asset_path)
+        db.add(t)
+        db.flush()
+        db.add(Guide(theme_id=t.id, name=guide_name, character_type=char_type))
+        themes[code] = t
+    db.flush()
+
+    axes = {}
+    for code, label, arm_codes in [*AXES, INTERVENTION_AXIS]:
+        axis = Axis(code=code, label=label, active_default=(code != INTERVENTION_AXIS[0]))
+        db.add(axis)
+        db.flush()
+        for arm_code in arm_codes:
+            db.add(
+                Arm(
+                    axis_id=axis.id,
+                    code=arm_code,
+                    label=arm_code.replace("_", " ").title(),
+                    is_safe_default=(arm_code in SAFE_DEFAULT_ARMS),
+                )
+            )
+        axes[code] = axis
+    db.flush()
+
+    numbers_topic = Topic(
+        domain_id=domains["numeracy"].id,
+        code="num_1_5",
+        label="Numbers 1-5",
+        level="beginner",
+        prerequisites=[],
+    )
+    db.add(numbers_topic)
+    db.flush()
+
+    db.add(
+        ActivityTemplate(
+            topic_id=numbers_topic.id,
+            modality="drag_drop",
+            method_compatible=["errorless", "try_then_correct"],
+            difficulty_min=1,
+            difficulty_max=3,
+            config={"kind": "count_and_select"},
+        )
+    )
+    db.add(
+        ActivityTemplate(
+            topic_id=numbers_topic.id,
+            modality="tap",
+            method_compatible=["errorless", "try_then_correct"],
+            difficulty_min=1,
+            difficulty_max=3,
+            config={"kind": "tap_the_number"},
+        )
+    )
+
+    # One matched item set per theme so the theme axis (docs/PLAN.md
+    # Phase 7) has a legitimate 4-way comparison from day one: same
+    # size, same difficulty mean, same answers -- only the theme
+    # differs. See docs/SCHEMA.md §3.
+    for theme_code, *_ in THEMES:
+        item_set = ItemSet(
+            topic_id=numbers_topic.id,
+            match_group="num_1_5_intro_v1",
+            difficulty_mean=1.4,
+            size=5,
+        )
+        db.add(item_set)
+        db.flush()
+        for answer in (1, 2, 3, 4, 5):
+            db.add(
+                Item(
+                    topic_id=numbers_topic.id,
+                    item_set_id=item_set.id,
+                    difficulty=1 if answer <= 3 else 2,
+                    answer={"count": answer},
+                    distractors=[answer - 1, answer + 1] if 1 < answer < 5 else [answer + 1],
+                    theme_id=themes[theme_code].id,
+                    source="authored",
+                    review_status="approved",
+                )
+            )
+    db.flush()
+
+
 def seed() -> None:
     Base.metadata.drop_all(bind=engine)
     init_db()
     db = SessionLocal()
     try:
-        domains = {}
-        for code, label, order in DOMAINS:
-            d = Domain(code=code, label=label, sort_order=order)
-            db.add(d)
-            domains[code] = d
-        db.flush()
-
-        themes = {}
-        for code, label, asset_path, guide_name, char_type in THEMES:
-            t = Theme(code=code, label=label, asset_path=asset_path)
-            db.add(t)
-            db.flush()
-            db.add(Guide(theme_id=t.id, name=guide_name, character_type=char_type))
-            themes[code] = t
-        db.flush()
-
-        axes = {}
-        for code, label, arm_codes in [*AXES, INTERVENTION_AXIS]:
-            axis = Axis(code=code, label=label, active_default=(code != INTERVENTION_AXIS[0]))
-            db.add(axis)
-            db.flush()
-            for arm_code in arm_codes:
-                db.add(
-                    Arm(
-                        axis_id=axis.id,
-                        code=arm_code,
-                        label=arm_code.replace("_", " ").title(),
-                        is_safe_default=(arm_code in SAFE_DEFAULT_ARMS),
-                    )
-                )
-            axes[code] = axis
-        db.flush()
-
-        numbers_topic = Topic(
-            domain_id=domains["numeracy"].id,
-            code="num_1_5",
-            label="Numbers 1-5",
-            level="beginner",
-            prerequisites=[],
-        )
-        db.add(numbers_topic)
-        db.flush()
-
-        db.add(
-            ActivityTemplate(
-                topic_id=numbers_topic.id,
-                modality="drag_drop",
-                method_compatible=["errorless", "try_then_correct"],
-                difficulty_min=1,
-                difficulty_max=3,
-                config={"kind": "count_and_select"},
-            )
-        )
-        db.add(
-            ActivityTemplate(
-                topic_id=numbers_topic.id,
-                modality="tap",
-                method_compatible=["errorless", "try_then_correct"],
-                difficulty_min=1,
-                difficulty_max=3,
-                config={"kind": "tap_the_number"},
-            )
-        )
-
-        # One matched item set per theme so the theme axis (docs/PLAN.md
-        # Phase 7) has a legitimate 4-way comparison from day one: same
-        # size, same difficulty mean, same answers -- only the theme
-        # differs. See docs/SCHEMA.md §3.
-        for theme_code, *_ in THEMES:
-            item_set = ItemSet(
-                topic_id=numbers_topic.id,
-                match_group="num_1_5_intro_v1",
-                difficulty_mean=1.4,
-                size=5,
-            )
-            db.add(item_set)
-            db.flush()
-            for answer in (1, 2, 3, 4, 5):
-                db.add(
-                    Item(
-                        topic_id=numbers_topic.id,
-                        item_set_id=item_set.id,
-                        difficulty=1 if answer <= 3 else 2,
-                        answer={"count": answer},
-                        distractors=[answer - 1, answer + 1] if 1 < answer < 5 else [answer + 1],
-                        theme_id=themes[theme_code].id,
-                        source="authored",
-                        review_status="approved",
-                    )
-                )
-
+        seed_curriculum(db)
         db.commit()
         print("Seed complete:")
         print(f"  domains: {len(DOMAINS)}")

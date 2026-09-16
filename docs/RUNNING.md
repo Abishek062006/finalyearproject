@@ -116,6 +116,25 @@ A debug strip at the bottom of the child screen shows the live decision
 (topic, difficulty, method, modality, and whether each was `explore` or
 `exploit`) — remove it once this stops being a research-debugging build.
 
+## Phase 8 (research evaluation)
+
+Not part of the running app — a separate `research/` package that drives the
+real backend engine directly against a throwaway in-memory database (no
+server, no browser). See `research/README.md` for the full picture;
+short version:
+
+```bash
+cd /path/to/final-year-project
+backend/.venv/bin/pip install -r research/requirements.txt   # matplotlib, once
+backend/.venv/bin/python -m research.run_simulation_study     # AURA vs 5 baselines, ~1-2 min
+backend/.venv/bin/python -m research.run_ablation_study        # AURA vs 4 ablations, ~4-5 min
+backend/.venv/bin/python -m pytest research/tests/ -v            # sanity tests, <1s
+```
+
+Results land in `research/results/` — `RESULTS.md` is the human-written read
+of the actual numbers from the last run; re-run the studies and it may need
+updating, since both use a randomized simulated population.
+
 ## Known verification gap: drag-and-drop in a browser
 
 The `drag_drop` modality (`app/src/child/DragDropAnswer.tsx`) uses a standard
