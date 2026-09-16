@@ -49,6 +49,18 @@ dashboard) is now actually based on, not raw accuracy. To see it without
 waiting 3 real days, push a `scheduled_probes.due_at` row into the past
 directly in `aura_dev.db` and fetch `next-activity` again.
 
+**Phase 6 (engagement + interventions):** happens automatically too. Answer a
+run of wrong items and the next activity fetch may return a short (5-20s)
+interlude instead of a lesson — the debug strip's `topic_reason` becomes
+`engagement_intervention`. Which of the four (mini_game, interest_injection,
+modality_switch, break) appears is chosen the same way as teaching_method/
+modality (Thompson sampling); if distress is high enough, it always picks
+`break` (the safe default) instead of experimenting. Finishing it returns to
+a normal lesson; the FIRST real answer after that measures whether engagement
+actually recovered and feeds that back to whichever arm was shown. The parent
+dashboard's "Suggested time today" card only appears after at least one full
+session has been ended.
+
 **Phase 4 flow (educator/counsellor):** on the registration screen, choose
 "Teacher / counsellor" instead of "Parent / guardian" — this routes to a
 separate, more detailed dashboard (README §2B) instead of the parent's.

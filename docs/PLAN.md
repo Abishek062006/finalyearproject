@@ -105,6 +105,45 @@ contribution. Features may be cut; that may not.
     dedup, full probe delivery + outcome attribution, audit probe scheduling,
     parent summary reflects retention, plus 2 dedicated LearnerModel regression
     tests) — 26/26 total passing.
+- **Phase 6 — done.** EngagementModel, conditional interventions, session-length
+  recommendation.
+  - `EngagementModel`: rules over a session's own answer history — error streak,
+    response-time trend vs. that session's own baseline, abandonment — into
+    high/stable/declining (README §14, never a diagnosis).
+  - `DecisionEngine` finally receives a REAL distress signal: Phases 1-5 fed
+    `DistressMonitor` a hardcoded `0.0`, so its safe-fallback branch had never
+    actually been exercised outside tests.
+  - The "intervention" axis (`mini_game`, `interest_injection`, `modality_switch`,
+    `break`) is deliberately **not** in `ExperimentManager.ACTIVE_AXIS_CODES` — it
+    is only assigned when engagement is declining and no intervention is already
+    pending, reusing the SAME Thompson-sampling `choose_arm` as the lesson axes.
+  - **Real fix needed to make that reuse actually work:** `EffectEstimator.winner`
+    and `.posterior` were hardcoded to judge every axis on `kind="immediate"`
+    (correctness) — meaningless for `break`, which has no right answer. Added an
+    `outcome_kind` parameter threaded through `DecisionEngine.choose_arm` so the
+    intervention axis is judged on `engagement_60s` (did engagement recover)
+    instead, while teaching_method/modality still use `immediate`.
+  - `InterventionModel` records the before/after and attributes the recovery
+    outcome back to the intervention's OWN assignment (not the lesson's) —
+    verified end-to-end **live against the running server**: 4 wrong answers in a
+    row pushed distress into `safe_fallback`, correctly selecting `break` (its
+    safe-default arm); `engagement_before=0.3` was recorded; after the child
+    returned and answered one real item, `engagement_after_60s=0.7` and exactly
+    one `engagement_60s` Outcome landed on the intervention's assignment.
+  - Session-length recommendation (README §19): populated at `end_session` from
+    how long engagement actually held up before first declining, averaged over
+    recent sessions, clipped to 10-30 minutes — not a fixed duration, not a
+    clinical attention-span claim.
+  - Child app: `InterventionScreen.tsx` renders all four arms with genuinely
+    distinct interactions (tap-the-stars, a themed greeting, a real drag gesture,
+    a breathing pause with a delayed button) — the backend decides which one, the
+    screen just renders it.
+  - Educator dashboard: the intervention axis appears automatically in the
+    existing per-axis evidence view, labelled "engagement recovery" instead of
+    "% success" since correctness isn't the relevant measure there.
+  - 10 new tests (engagement state classification x4, intervention triggering +
+    no-stacking + outcome attribution x3, intervention outcomes feed the same
+    EffectEstimator x1, session-length recommendation x3) — **36/36 total passing.**
 
 ---
 

@@ -41,7 +41,7 @@ def db():
 def seeded_db(db):
     """Seeds the same curriculum content as scripts/seed.py, against the
     test's in-memory engine rather than the dev SQLite file."""
-    from scripts.seed import AXES, DOMAINS, THEMES
+    from scripts.seed import AXES, DOMAINS, INTERVENTION_AXIS, SAFE_DEFAULT_ARMS, THEMES
     from app.models.curriculum import ActivityTemplate, Domain, Guide, Item, ItemSet, Theme, Topic
     from app.models.experiment import Arm, Axis
 
@@ -62,8 +62,8 @@ def seeded_db(db):
     db.flush()
 
     axes = {}
-    for code, label, arm_codes in AXES:
-        axis = Axis(code=code, label=label, active_default=True)
+    for code, label, arm_codes in [*AXES, INTERVENTION_AXIS]:
+        axis = Axis(code=code, label=label, active_default=(code != INTERVENTION_AXIS[0]))
         db.add(axis)
         db.flush()
         for arm_code in arm_codes:
@@ -72,7 +72,7 @@ def seeded_db(db):
                     axis_id=axis.id,
                     code=arm_code,
                     label=arm_code,
-                    is_safe_default=(arm_code in ("try_then_correct", "tap")),
+                    is_safe_default=(arm_code in SAFE_DEFAULT_ARMS),
                 )
             )
         axes[code] = axis

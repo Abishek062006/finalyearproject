@@ -10,7 +10,7 @@ from app.engine.retention_model import RetentionModel
 from app.models.adults import Recommendation
 from app.models.curriculum import Domain, Theme, Topic
 from app.models.identity import Child, Consent, EducatorLink, Guardianship, User
-from app.models.profile_state import InterestState, MasteryState
+from app.models.profile_state import EngagementState, InterestState, MasteryState
 from app.models.runtime import ActivityInstance, Session as SessionModel
 
 
@@ -151,6 +151,16 @@ def summary(db: DBSession, child_id: str) -> dict:
         .filter(SessionModel.child_id == child_id, ActivityInstance.completed.is_(True))
         .count()
     )
+    # README §19: an individualized learning-window suggestion based on
+    # observed history, populated at end_session (app/services/session_service.py)
+    # — None until at least one full session has finished.
+    latest_engagement = (
+        db.query(EngagementState)
+        .filter_by(child_id=child_id)
+        .filter(EngagementState.recommended_session_minutes.isnot(None))
+        .order_by(EngagementState.date.desc())
+        .first()
+    )
     return {
         "learning_minutes_total": round(learning_minutes_total, 1),
         "activities_completed": activities_completed,
@@ -158,6 +168,7 @@ def summary(db: DBSession, child_id: str) -> dict:
         "topics_to_review": topics_to_review(db, child_id),
         "todays_suggestions": todays_suggestions(db, child_id),
         "recent_sessions": sessions[:10],
+        "recommended_session_minutes": latest_engagement.recommended_session_minutes if latest_engagement else None,
     }
 
 

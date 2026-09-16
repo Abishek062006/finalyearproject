@@ -13,16 +13,24 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session as DBSession
 
 from app.engine.decision_engine import DecisionEngine
+from app.engine.engagement_model import EngagementModel, engagement_score
+from app.engine.intervention_model import InterventionModel
 from app.engine.retention_model import RetentionModel
+from app.models.profile_state import EngagementState
 from app.models.runtime import (
     ActivityInstance,
     ActivityInstanceAssignment,
     Interaction,
+    InterventionEvent,
     ScheduledProbe,
     Session as SessionModel,
 )
-from app.models.experiment import Outcome
+from app.models.experiment import Assignment, Outcome
 from app.engine.learner_model import LearnerModel
+
+MIN_RECOMMENDED_SESSION_MINUTES = 10.0
+MAX_RECOMMENDED_SESSION_MINUTES = 30.0
+RECOMMENDATION_HISTORY_DAYS = 5
 
 
 def start_session(db: DBSession, child_id: str, planned_minutes: float = 15.0) -> SessionModel:
@@ -37,10 +45,21 @@ def start_session(db: DBSession, child_id: str, planned_minutes: float = 15.0) -
     return session
 
 
+def _find_assignment(db: DBSession, child_id: str, axis_id: str, arm_id: str) -> Assignment | None:
+    """Most recent Assignment for this child+axis+arm — DecisionEngine
+    already recorded it a moment ago; this just finds it again to link."""
+    return (
+        db.query(Assignment)
+        .filter_by(child_id=child_id, axis_id=axis_id, arm_id=arm_id)
+        .order_by(Assignment.created_at.desc())
+        .first()
+    )
+
+
 def next_activity(db: DBSession, session_id: str) -> ActivityInstance:
     session = db.query(SessionModel).filter_by(id=session_id).one()
     engine = DecisionEngine(db)
-    spec = engine.decide(session.child_id)
+    spec = engine.decide(session.child_id, session_id)
 
     spec_json = {
         "topic_id": spec.topic_id,
@@ -57,6 +76,8 @@ def next_activity(db: DBSession, session_id: str) -> ActivityInstance:
         "item_set_id": spec.item_set_id,
         "items": spec.items,
         "probe_ids": spec.probe_ids,
+        "is_intervention": spec.is_intervention,
+        "intervention_type": spec.intervention_arm.arm_code if spec.intervention_arm else None,
     }
 
     activity = ActivityInstance(
@@ -69,20 +90,24 @@ def next_activity(db: DBSession, session_id: str) -> ActivityInstance:
     db.add(activity)
     db.flush()
 
-    for arm_choice in (spec.method_arm, spec.modality_arm):
-        if arm_choice is None:
-            continue
-        # find the assignment just recorded for this axis (most recent for this child+axis)
-        from app.models.experiment import Assignment
-
-        assignment = (
-            db.query(Assignment)
-            .filter_by(child_id=session.child_id, axis_id=arm_choice.axis_id, arm_id=arm_choice.arm_id)
-            .order_by(Assignment.created_at.desc())
-            .first()
+    if spec.is_intervention:
+        # README §15/§16 / docs/PLAN.md Phase 6: a short, conditionally-
+        # triggered re-engagement interlude — not a teaching decision, so it
+        # gets its own InterventionEvent rather than an ActivityInstanceAssignment.
+        assignment = _find_assignment(db, session.child_id, spec.intervention_arm.axis_id, spec.intervention_arm.arm_id)
+        InterventionModel(db).record_start(
+            session_id=session_id,
+            engagement_before=spec.engagement_before,
+            arm_id=spec.intervention_arm.arm_id,
+            assignment_id=assignment.id if assignment else None,
         )
-        if assignment:
-            db.add(ActivityInstanceAssignment(activity_instance_id=activity.id, assignment_id=assignment.id))
+    else:
+        for arm_choice in (spec.method_arm, spec.modality_arm):
+            if arm_choice is None:
+                continue
+            assignment = _find_assignment(db, session.child_id, arm_choice.axis_id, arm_choice.arm_id)
+            if assignment:
+                db.add(ActivityInstanceAssignment(activity_instance_id=activity.id, assignment_id=assignment.id))
 
     # Mark every ScheduledProbe this activity fulfills as delivered, so it
     # won't be picked again (docs/PLAN.md Phase 5). The actual retention
@@ -122,6 +147,20 @@ def record_answer(
         server_time=now,
     )
     db.add(interaction)
+
+    if activity.spec.get("is_intervention"):
+        # README §15/§16: a re-engagement interlude, not a teaching decision
+        # — no LearnerModel/RetentionModel update, no "immediate" teaching
+        # outcome (correctness isn't a meaningful concept for e.g. "break" or
+        # "mini_game"). One interaction always completes it. Whether it
+        # actually helped is measured on the child's NEXT real answer, below.
+        activity.completed = True
+        activity.ended_at = now
+        db.commit()
+        db.refresh(interaction)
+        return interaction
+
+    InterventionModel(db).finalize_pending(session.child_id, session.id)
 
     retention_model = RetentionModel(db)
     LearnerModel(db).update(session.child_id, activity.topic_id, correct)
@@ -180,6 +219,55 @@ def record_answer(
     return interaction
 
 
+def _record_engagement_summary(db: DBSession, session: SessionModel, started: datetime, ended: datetime) -> None:
+    """README §19/docs/PLAN.md Phase 6: "an individualized learning window
+    based on observed interaction history" — NOT a fixed duration for every
+    child, and not a clinical measure of attention span. Recommendation is
+    the recent average of how long engagement actually held up before the
+    first sign of decline, clipped to a sane band."""
+    session_minutes = max(0.1, (ended - started).total_seconds() / 60)
+
+    interventions = (
+        db.query(InterventionEvent)
+        .filter_by(session_id=session.id)
+        .order_by(InterventionEvent.triggered_at.asc())
+        .all()
+    )
+    if interventions:
+        first_decline = interventions[0].triggered_at.replace(tzinfo=None)
+        decline_after_minutes = max(0.1, (first_decline - started).total_seconds() / 60)
+    else:
+        decline_after_minutes = session_minutes  # engagement never declined this session
+
+    reading = EngagementModel(db).estimate(session.child_id, session.id)
+    today = ended.date().isoformat()
+
+    row = db.query(EngagementState).filter_by(child_id=session.child_id, date=today).one_or_none()
+    if row is None:
+        row = EngagementState(child_id=session.child_id, date=today)
+        db.add(row)
+        db.flush()
+    row.mean_engagement = engagement_score(reading)
+    row.decline_after_minutes = decline_after_minutes
+    row.distress_events = len(interventions)
+
+    history = (
+        db.query(EngagementState)
+        .filter(
+            EngagementState.child_id == session.child_id,
+            EngagementState.date != today,
+            EngagementState.decline_after_minutes.isnot(None),
+        )
+        .order_by(EngagementState.date.desc())
+        .limit(RECOMMENDATION_HISTORY_DAYS)
+        .all()
+    )
+    samples = [h.decline_after_minutes for h in history] + [decline_after_minutes]
+    avg_decline = sum(samples) / len(samples)
+    row.recommended_session_minutes = round(min(MAX_RECOMMENDED_SESSION_MINUTES, max(MIN_RECOMMENDED_SESSION_MINUTES, avg_decline)), 1)
+    db.flush()
+
+
 def end_session(db: DBSession, session_id: str, end_reason: str = "completed") -> SessionModel:
     session = db.query(SessionModel).filter_by(id=session_id).one()
 
@@ -198,6 +286,7 @@ def end_session(db: DBSession, session_id: str, end_reason: str = "completed") -
         started = session.started_at.replace(tzinfo=None)
         ended = session.ended_at.replace(tzinfo=None)
         session.actual_minutes = (ended - started).total_seconds() / 60
+        _record_engagement_summary(db, session, started, ended)
     db.commit()
     db.refresh(session)
     return session

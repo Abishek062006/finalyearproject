@@ -37,6 +37,8 @@ export interface ActivityItem {
   distractors: number[];
 }
 
+export type InterventionType = "mini_game" | "interest_injection" | "modality_switch" | "break";
+
 export interface ActivitySpec {
   topic_id: string;
   topic_code: string;
@@ -48,6 +50,8 @@ export interface ActivitySpec {
   theme: string;
   item_set_id: string | null;
   items: ActivityItem[];
+  is_intervention: boolean;
+  intervention_type: InterventionType | null;
 }
 
 export interface Activity {
@@ -125,6 +129,7 @@ export interface ChildSummary {
   topics_to_review: TopicToReview[];
   todays_suggestions: Recommendation[];
   recent_sessions: SessionHistoryItem[];
+  recommended_session_minutes: number | null;
 }
 
 export interface ConsentState {
@@ -255,7 +260,7 @@ export const api = {
 
   submitAnswer: (
     activityInstanceId: string,
-    payload: { item_id: string; correct: boolean; response_time_ms: number; attempts?: number; hints_used?: number }
+    payload: { item_id: string | null; correct: boolean; response_time_ms: number; attempts?: number; hints_used?: number }
   ) =>
     request(`/sessions/activities/${activityInstanceId}/answer`, {
       method: "POST",

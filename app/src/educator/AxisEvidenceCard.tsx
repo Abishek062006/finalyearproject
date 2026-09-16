@@ -31,14 +31,21 @@ export function AxisEvidenceCard({
 
       {axis.winner_confidence !== null ? (
         <Text style={styles.verdictText}>
-          Current best option: confirmed (~{axis.winner_confidence}% estimated success)
+          Current best option: confirmed (~{axis.winner_confidence}%{" "}
+          {axis.axis_code === "intervention" ? "estimated engagement recovery" : "estimated success"})
         </Text>
       ) : (
         <Text style={styles.verdictTextMuted}>Still comparing — no confirmed winner yet</Text>
       )}
 
       {axis.arms.map((arm) => (
-        <ArmRow key={arm.arm_code} arm={arm} allowed={locks.find((l) => l.arm_code === arm.arm_code)?.allow ?? true} onToggle={(v) => onToggleLock(arm.arm_code, v)} />
+        <ArmRow
+          key={arm.arm_code}
+          arm={arm}
+          statLabel={axis.axis_code === "intervention" ? "engagement recovery" : undefined}
+          allowed={locks.find((l) => l.arm_code === arm.arm_code)?.allow ?? true}
+          onToggle={(v) => onToggleLock(arm.arm_code, v)}
+        />
       ))}
 
       <Text style={styles.footnote}>Internal model estimate, not a clinical measurement.</Text>
@@ -46,7 +53,17 @@ export function AxisEvidenceCard({
   );
 }
 
-function ArmRow({ arm, allowed, onToggle }: { arm: ArmEvidence; allowed: boolean; onToggle: (v: boolean) => void }) {
+function ArmRow({
+  arm,
+  allowed,
+  onToggle,
+  statLabel,
+}: {
+  arm: ArmEvidence;
+  allowed: boolean;
+  onToggle: (v: boolean) => void;
+  statLabel?: string;
+}) {
   return (
     <View style={styles.armRow}>
       <View style={styles.armHeader}>
@@ -54,7 +71,7 @@ function ArmRow({ arm, allowed, onToggle }: { arm: ArmEvidence; allowed: boolean
           {arm.label} {arm.is_current_winner ? "🏆" : ""}
         </Text>
         <Text style={styles.armStats}>
-          {arm.accuracy_percent}% · n={arm.trials}
+          {arm.accuracy_percent}%{statLabel ? ` ${statLabel}` : ""} · n={arm.trials}
         </Text>
       </View>
       <ProgressBar percent={arm.accuracy_percent} color={arm.is_current_winner ? colors.success : colors.primary} />

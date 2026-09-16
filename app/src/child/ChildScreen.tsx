@@ -17,6 +17,7 @@ import { GuideBubble } from "./GuideBubble";
 import { CountingScene } from "./CountingScene";
 import { TapAnswer } from "./TapAnswer";
 import { DragDropAnswer } from "./DragDropAnswer";
+import { InterventionScreen } from "./InterventionScreen";
 import { api, Activity, Session } from "../shared/api";
 import { colors, spacing, ThemeCode } from "../shared/theme";
 
@@ -117,6 +118,32 @@ export function ChildScreen({ childId, onExit }: { childId: string; onExit: () =
   }
 
   if (!activity) return null;
+
+  if (activity.spec.is_intervention) {
+    return (
+      <InterventionScreen
+        type={activity.spec.intervention_type!}
+        theme={(activity.spec.theme as ThemeCode) ?? "dino"}
+        onDone={() => handleInterventionDone()}
+      />
+    );
+  }
+
+  async function handleInterventionDone() {
+    if (!activity || !session) return;
+    await api.submitAnswer(activity.id, { item_id: null, correct: true, response_time_ms: 0 });
+    try {
+      const next = await api.nextActivity(session.id);
+      setActivity(next);
+      setItemIndex(0);
+      responseStartedAt.current = Date.now();
+      setPhase("playing");
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : String(err));
+      setPhase("error");
+    }
+  }
+
   const item = activity.spec.items[itemIndex];
   const theme = (activity.spec.theme as ThemeCode) ?? "dino";
   const choices = [item.answer.count, ...item.distractors];

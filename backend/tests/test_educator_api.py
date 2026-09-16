@@ -50,9 +50,14 @@ def test_educator_link_and_profile(seeded_db):
     assert body["nickname"] == "Rae"
     assert any(d["domain_code"] == "numeracy" for d in body["domains"])
     axis_codes = {a["axis_code"] for a in body["axes"]}
-    assert axis_codes == {"teaching_method", "modality"}
+    # teaching_method + modality are assigned on every lesson activity;
+    # intervention is included too even though it's conditionally-triggered
+    # (docs/PLAN.md Phase 6) — the educator dashboard shows it regardless of
+    # whether it has fired yet for this child.
+    assert axis_codes == {"teaching_method", "modality", "intervention"}
+    expected_arm_counts = {"teaching_method": 2, "modality": 2, "intervention": 4}
     for axis in body["axes"]:
-        assert len(axis["arms"]) == 2
+        assert len(axis["arms"]) == expected_arm_counts[axis["axis_code"]]
         for arm in axis["arms"]:
             assert 0 <= arm["accuracy_percent"] <= 100
 

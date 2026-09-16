@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session as DBSession
 
+from app.engine.decision_engine import INTERVENTION_AXIS_CODE
 from app.engine.effect_estimator import EffectEstimator
 from app.engine.experiment_manager import ExperimentManager
 from app.models.adults import Override
@@ -17,6 +18,12 @@ from app.models.identity import Child, EducatorLink
 from app.services.parent_service import domain_progress
 
 ASSIGNMENT_WINDOW_HOURS = 24  # how long an educator's topic assignment holds
+
+# The intervention axis is judged on whether engagement recovered, not on
+# correctness — it's not in ExperimentManager.ACTIVE_AXIS_CODES (it's only
+# triggered conditionally, docs/PLAN.md Phase 6), so it needs to be added
+# here explicitly rather than falling out of active_axes().
+AXIS_OUTCOME_KIND = {INTERVENTION_AXIS_CODE: "engagement_60s"}
 
 
 def list_children_for_educator(db: DBSession, user_id: str) -> list[Child]:
@@ -31,20 +38,24 @@ def list_children_for_educator(db: DBSession, user_id: str) -> list[Child]:
 def axis_evidence(db: DBSession, child_id: str) -> list[dict]:
     manager = ExperimentManager(db)
     estimator = EffectEstimator(db)
+    intervention_axis = db.query(Axis).filter_by(code=INTERVENTION_AXIS_CODE).one_or_none()
+    axes = manager.active_axes() + ([intervention_axis] if intervention_axis else [])
+
     out = []
-    for axis in manager.active_axes():
+    for axis in axes:
+        kind = AXIS_OUTCOME_KIND.get(axis.code, "immediate")
         arms = manager.arms_for(axis.id)
         arm_ids = [a.id for a in arms]
-        winner = estimator.winner(child_id, axis.id, arm_ids)
+        winner = estimator.winner(child_id, axis.id, arm_ids, kind=kind)
         arm_rows = []
         for arm in arms:
-            post = estimator.posterior(child_id, axis.id, arm.id)
+            post = estimator.posterior(child_id, axis.id, arm.id, kind=kind)
             arm_rows.append(
                 {
                     "arm_code": arm.code,
                     "label": arm.label,
                     "trials": post.n,
-                    "accuracy_percent": round(post.mean * 100),
+                    "accuracy_percent": round(post.mean * 100),  # for "intervention", this reads as an engagement-recovery score
                     "is_current_winner": winner is not None and winner.arm_id == arm.id,
                 }
             )

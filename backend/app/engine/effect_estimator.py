@@ -84,18 +84,25 @@ class EffectEstimator:
             return None
         return sum(r.value for r in rows) / len(rows), len(rows)
 
-    def drift_detected(self, child_id: str, axis_id: str, arm_id: str) -> bool:
-        lifetime = self.posterior(child_id, axis_id, arm_id)
-        recent = self.recent_accuracy(child_id, axis_id, arm_id)
+    def drift_detected(self, child_id: str, axis_id: str, arm_id: str, kind: str = "immediate") -> bool:
+        lifetime = self.posterior(child_id, axis_id, arm_id, kind=kind)
+        recent = self.recent_accuracy(child_id, axis_id, arm_id, kind=kind)
         if recent is None or lifetime.n < MIN_EVIDENCE_TRIALS:
             return False
         recent_mean, _ = recent
         return (lifetime.mean - recent_mean) > DRIFT_DROP_THRESHOLD
 
-    def winner(self, child_id: str, axis_id: str, arm_ids: list[str]) -> Verdict | None:
+    def winner(self, child_id: str, axis_id: str, arm_ids: list[str], kind: str = "immediate") -> Verdict | None:
         """Only declares a winner once there is enough evidence AND the
         confidence intervals of the top two arms don't overlap — a cheap,
         honest substitute for a full sequential test (docs/PLAN.md Phase 4).
+
+        `kind` selects WHICH outcome the arms are judged on — "immediate"
+        (correctness) for the teaching_method/modality axes, but
+        "engagement_60s" for the intervention axis (docs/PLAN.md Phase 6):
+        an intervention's own "immediate" answer isn't meaningful (a
+        "break" has no right answer), what matters is whether engagement
+        recovered afterward.
 
         A winner whose recent trials have drifted well below its lifetime
         average is NOT re-confirmed here, even if the lifetime posterior
@@ -103,7 +110,7 @@ class EffectEstimator:
         changed rather than trusting stale evidence (docs/PLAN.md Phase 4:
         "drift-triggered re-testing")."""
         posteriors = sorted(
-            (self.posterior(child_id, axis_id, a) for a in arm_ids),
+            (self.posterior(child_id, axis_id, a, kind=kind) for a in arm_ids),
             key=lambda p: p.mean,
             reverse=True,
         )
@@ -114,7 +121,7 @@ class EffectEstimator:
             return None
         if len(posteriors) > 1 and posteriors[1].ci_high >= best.ci_low:
             return None  # arms are still statistically indistinguishable
-        if self.drift_detected(child_id, axis_id, best.arm_id):
+        if self.drift_detected(child_id, axis_id, best.arm_id, kind=kind):
             return None  # previously-strong arm is regressing for this child right now
         return Verdict(
             arm_id=best.arm_id, mean=best.mean, ci_low=best.ci_low, ci_high=best.ci_high, evidence_trials=best.n

@@ -60,6 +60,17 @@ export function DashboardScreen({ childId, onBack, onOpenConsent }: { childId: s
             </Card>
           </View>
 
+          {summary.recommended_session_minutes !== null && (
+            <Card>
+              <SectionLabel>Suggested time today</SectionLabel>
+              <Text style={styles.suggestionText}>
+                Based on how long your child has stayed engaged recently, about{" "}
+                <Text style={{ fontWeight: "800" }}>{Math.round(summary.recommended_session_minutes)} minutes</Text> looks like a
+                good fit today.
+              </Text>
+            </Card>
+          )}
+
           <Card>
             <SectionLabel>Progress by area</SectionLabel>
             {summary.domains.map((d) => (

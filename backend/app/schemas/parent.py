@@ -61,6 +61,7 @@ class ChildSummaryOut(BaseModel):
     topics_to_review: list[TopicToReview]
     todays_suggestions: list[RecommendationOut]
     recent_sessions: list[SessionHistoryItem]
+    recommended_session_minutes: float | None  # README §19; None until a session has finished
 
 
 class RecommendationResponseRequest(BaseModel):

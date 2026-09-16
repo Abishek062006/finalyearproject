@@ -35,6 +35,14 @@ AXES = [
     ("modality", "How the child responds", ["tap", "drag_drop"]),
 ]
 
+# Not in ACTIVE_AXIS_CODES (app/engine/experiment_manager.py) — this one is
+# NOT assigned on every lesson activity like the axes above. It's only
+# triggered conditionally, when EngagementModel detects declining engagement
+# (docs/PLAN.md Phase 6 / README §16). Same Thompson-sampling machinery,
+# different trigger.
+INTERVENTION_AXIS = ("intervention", "Which support helps them re-engage", ["mini_game", "interest_injection", "modality_switch", "break"])
+SAFE_DEFAULT_ARMS = {"try_then_correct", "tap", "break"}
+
 
 def seed() -> None:
     Base.metadata.drop_all(bind=engine)
@@ -58,8 +66,8 @@ def seed() -> None:
         db.flush()
 
         axes = {}
-        for code, label, arm_codes in AXES:
-            axis = Axis(code=code, label=label, active_default=True)
+        for code, label, arm_codes in [*AXES, INTERVENTION_AXIS]:
+            axis = Axis(code=code, label=label, active_default=(code != INTERVENTION_AXIS[0]))
             db.add(axis)
             db.flush()
             for arm_code in arm_codes:
@@ -68,7 +76,7 @@ def seed() -> None:
                         axis_id=axis.id,
                         code=arm_code,
                         label=arm_code.replace("_", " ").title(),
-                        is_safe_default=(arm_code in ("try_then_correct", "tap")),
+                        is_safe_default=(arm_code in SAFE_DEFAULT_ARMS),
                     )
                 )
             axes[code] = axis
@@ -135,7 +143,7 @@ def seed() -> None:
         print("Seed complete:")
         print(f"  domains: {len(DOMAINS)}")
         print(f"  themes:  {len(THEMES)}")
-        print(f"  axes:    {[a[0] for a in AXES]}")
+        print(f"  axes:    {[a[0] for a in AXES]} + intervention (conditional)")
         print("  topic:   num_1_5 with 2 matched item sets (dino / space), 5 items each")
     finally:
         db.close()
