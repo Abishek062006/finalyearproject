@@ -42,6 +42,7 @@ def submit_answer(activity_instance_id: str, req: AnswerRequest, db: DBSession =
         response_time_ms=req.response_time_ms,
         attempts=req.attempts,
         hints_used=req.hints_used,
+        interaction_id=req.interaction_id,
     )
     return interaction
 

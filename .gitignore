@@ -4,6 +4,7 @@ __pycache__/
 *.pyc
 backend/aura_dev.db
 backend/.pytest_cache/
+backend/backups/
 
 # Node / Expo
 app/node_modules/

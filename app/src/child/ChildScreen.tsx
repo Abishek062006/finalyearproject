@@ -19,6 +19,7 @@ import { TapAnswer } from "./TapAnswer";
 import { DragDropAnswer } from "./DragDropAnswer";
 import { InterventionScreen } from "./InterventionScreen";
 import { api, Activity, Session } from "../shared/api";
+import { pendingCount } from "../shared/offlineQueue";
 import { colors, spacing, ThemeCode } from "../shared/theme";
 
 type Phase = "loading" | "playing" | "feedback" | "error";
@@ -66,7 +67,7 @@ export function ChildScreen({ childId, onExit }: { childId: string; onExit: () =
     setLastCorrect(correct);
     setPhase("feedback");
 
-    await api.submitAnswer(activity.id, {
+    await api.submitAnswerReliably(activity.id, {
       item_id: item.id,
       correct,
       response_time_ms: responseTimeMs,
@@ -88,10 +89,26 @@ export function ChildScreen({ childId, onExit }: { childId: string; onExit: () =
         responseStartedAt.current = Date.now();
         setPhase("playing");
       } catch (err) {
-        setErrorMessage(err instanceof Error ? err.message : String(err));
-        setPhase("error");
+        await showNextActivityError(err);
       }
     }, 1100);
+  }
+
+  async function showNextActivityError(err: unknown) {
+    // The answer that just finished this activity is safe either way — it
+    // was queued locally if the network failed (offlineQueue.ts). Fetching
+    // a NEW activity genuinely needs connectivity (DecisionEngine picks it
+    // adaptively from that answer), so this is the one place offline play
+    // can't continue transparently — say so plainly instead of a raw error.
+    const queued = await pendingCount();
+    setErrorMessage(
+      queued > 0
+        ? `You're offline. ${queued} answer${queued === 1 ? "" : "s"} saved and waiting to sync — reconnect and try again to keep playing.`
+        : err instanceof Error
+          ? err.message
+          : String(err)
+    );
+    setPhase("error");
   }
 
   if (phase === "loading") {
@@ -131,7 +148,7 @@ export function ChildScreen({ childId, onExit }: { childId: string; onExit: () =
 
   async function handleInterventionDone() {
     if (!activity || !session) return;
-    await api.submitAnswer(activity.id, { item_id: null, correct: true, response_time_ms: 0 });
+    await api.submitAnswerReliably(activity.id, { item_id: null, correct: true, response_time_ms: 0 });
     try {
       const next = await api.nextActivity(session.id);
       setActivity(next);
@@ -139,8 +156,7 @@ export function ChildScreen({ childId, onExit }: { childId: string; onExit: () =
       responseStartedAt.current = Date.now();
       setPhase("playing");
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : String(err));
-      setPhase("error");
+      await showNextActivityError(err);
     }
   }
 
@@ -157,7 +173,15 @@ export function ChildScreen({ childId, onExit }: { childId: string; onExit: () =
       : "Let's play!";
 
   async function finishForToday() {
-    if (session) await api.endSession(session.id);
+    if (session) {
+      try {
+        await api.endSession(session.id);
+      } catch {
+        // Offline: nothing to lose here (endSession just stamps ended_at/
+        // end_reason) — let the child leave either way rather than trap
+        // them on this screen.
+      }
+    }
     onExit();
   }
 

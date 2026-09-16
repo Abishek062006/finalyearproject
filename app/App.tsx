@@ -11,6 +11,7 @@ import { EducatorChildListScreen } from "./src/educator/EducatorChildListScreen"
 import { EducatorDashboardScreen } from "./src/educator/EducatorDashboardScreen";
 import { api } from "./src/shared/api";
 import { authStore } from "./src/shared/authStore";
+import { ErrorBoundary } from "./src/shared/ErrorBoundary";
 import { colors } from "./src/shared/theme";
 
 /**
@@ -62,6 +63,7 @@ export default function App() {
   }
 
   return (
+    <ErrorBoundary>
     <SafeAreaView style={styles.safe}>
       <StatusBar style="dark" />
 
@@ -90,7 +92,11 @@ export default function App() {
       )}
 
       {screen.name === "consent" && (
-        <ConsentScreen childId={screen.childId} onBack={() => setScreen({ name: "dashboard", childId: screen.childId })} />
+        <ConsentScreen
+          childId={screen.childId}
+          onBack={() => setScreen({ name: "dashboard", childId: screen.childId })}
+          onWithdrawn={() => setScreen({ name: "childList" })}
+        />
       )}
 
       {screen.name === "play" && <ChildScreen childId={screen.childId} onExit={() => setScreen({ name: "childList" })} />}
@@ -104,6 +110,7 @@ export default function App() {
         <EducatorDashboardScreen childId={screen.childId} onBack={() => setScreen({ name: "educatorList" })} />
       )}
     </SafeAreaView>
+    </ErrorBoundary>
   );
 }
 

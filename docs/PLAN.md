@@ -261,6 +261,91 @@ contribution. Features may be cut; that may not.
   - **Not yet done:** paired significance testing on top of the two result
     tables (the common-random-numbers paired design already in place makes
     this cheap to add later); real published data in the replay study.
+- **Phase 9 (pilot readiness) — in progress; the code half is done, the
+  fieldwork half (partner school, ethics approval, the pilot itself, paper
+  writing) is not, and isn't something a coding session can do.** Built:
+  consent flow hardening, data export, offline mode, crash reporting,
+  educator training sheet, daily backup.
+  - **Consent hardening**: `research_use` (previously just a comment in the
+    schema, never actually wired up) is now a real, functioning consent
+    scope — the parent-facing screen has a toggle for it, and the
+    anonymized research export (below) checks it before returning anything,
+    with a clean 403 if it isn't granted. A parent can also fully **withdraw
+    and delete** a child (`DELETE /parent/children/{id}`,
+    `parent_service.withdraw_and_delete_child`) — a genuine cascading
+    hard-delete across all ~15 child-owned tables in dependency order (not
+    just revoking consent), behind an explicit two-step in-app confirmation
+    panel. Deliberately NOT `Alert.alert`-based: live browser testing caught
+    that a native confirm dialog is unreliable/hard to verify on web
+    (react-native-web's Alert support is inconsistent), so an irreversible
+    action gets its own always-rendered confirmation UI instead of a
+    platform-native dialog.
+  - **Data export**: two distinct exports, matching docs/ARCHITECTURE.md §7/
+    §9 exactly — a parent's own full, non-anonymized export
+    (`GET /parent/children/{id}/export`, data portability, gated only by
+    guardianship) and the anonymized research export
+    (`GET /educator/children/{id}/export`, pseudonymous via the existing
+    `research_hash` column, gated on `research_use` consent). Both built
+    from one shared `export_service.gather_child_data` so they can't
+    silently drift apart on what data exists.
+  - **Offline mode**: scoped deliberately, not the full architecture-doc
+    vision. `Interaction.id` was already designed to be client-generated for
+    exactly this (its own docstring said so since Phase 1) but nothing
+    actually did it — `session_service.record_answer` now accepts an
+    optional `interaction_id` and is idempotent on it (a resend of the same
+    id returns the existing row, no double-counted mastery/outcome/probe
+    updates). The child app (`app/src/shared/offlineQueue.ts`) generates
+    that id client-side, and on a failed submit queues the answer in
+    AsyncStorage instead of losing it, retrying automatically. Does **not**
+    implement full prefetch-of-upcoming-ActivitySpecs — `DecisionEngine`
+    picks the next activity adaptively from the child's latest answer, so
+    "the next activity" genuinely isn't knowable before that answer lands;
+    fetching new adaptive content still needs connectivity, and the app
+    says so plainly rather than pretending otherwise. Live-tested by
+    accident during verification (a backend restart mid-session produced 6
+    real consecutive connection failures) — no crash, no lost data, clean
+    recovery once the backend came back.
+  - **Crash reporting**: a React `ErrorBoundary` wraps the whole app
+    (`app/src/shared/ErrorBoundary.tsx`) and posts to the new, deliberately
+    UNAUTHENTICATED `POST /telemetry/crash-reports` (a crash can happen
+    before login or with an expired token — a crash reporter must never
+    itself fail closed). No paid crash SDK, per the project's no-paid-API
+    constraint — just a minimal self-hosted `CrashReport` table.
+  - **Daily backup**: `backend/scripts/backup_db.py` — a proper SQLite
+    online backup (Python's `sqlite3.Connection.backup()`, safe even while
+    the server is mid-write, not a raw file copy), timestamped, with
+    2-week pruning. Explicitly SQLite-only — the moment this project
+    actually moves to Postgres (README's tech stack table already
+    anticipates this), a `pg_dump`-based replacement is separate later work.
+  - **Educator training sheet**: `docs/EDUCATOR_TRAINING.md` — a real
+    document a teacher/counsellor reads once before their first session,
+    covering access, reading the (explicitly non-clinical) evidence cards,
+    locking arms, the safety behaviour they should expect, and data/privacy
+    boundaries.
+  - Small refactor along the way, not scoped to Phase 9 specifically:
+    `session_service.next_activity` gained an optional `engine` parameter
+    (default: unchanged) — already added in Phase 8 for the research
+    harness, reused here for nothing new but worth noting it's now load-
+    bearing for two different phases' needs.
+  - 9 new backend tests (parent/educator export access control and
+    anonymization, research_use consent gating including
+    grant-then-revoke, cascading delete removes every row, delete requires
+    guardianship) + 2 idempotency tests (retried interaction_id doesn't
+    double-count; normal behaviour unchanged without one) + 3 crash-report
+    tests — **54/54 total passing.** Verified live end-to-end in-browser:
+    registered, created a child, toggled `research_use` on, exported real
+    (non-empty) JSON data via the actual download flow, then withdrew and
+    deleted the child through the real in-app confirmation panel — the
+    child genuinely disappeared from the list and a DELETE with a real 200
+    hit the server.
+  - **Not done, and out of scope for a coding session**: the actual pilot
+    (partner school, 5-10 children, 4-6 weeks), ethics/IRB approval, parent
+    consent/assent paperwork, a real privacy notice reviewed by someone
+    qualified to write one, SUS usability testing with real teachers and
+    parents, and the paper itself. Phase 8's simulation results alone
+    already support a paper per docs/PLAN.md's own fallback note — the
+    pilot adds real-child validation on top, it isn't a prerequisite to
+    start writing.
 
 ---
 

@@ -138,12 +138,27 @@ def record_answer(
     response_time_ms: int,
     attempts: int = 1,
     hints_used: int = 0,
+    interaction_id: str | None = None,
 ) -> Interaction:
+    """`interaction_id`: an offline-mode retry sends the SAME client-
+    generated UUID it used on the original (dropped-connection) attempt —
+    docs/ARCHITECTURE.md §8 ("every event carries a client-generated UUID so
+    replays are idempotent") and the schema's own docstring
+    (app/models/runtime.py's `Interaction.id`). If that id was already
+    recorded, this is a retry of an answer the server actually did receive
+    — return the existing row untouched rather than double-counting the
+    mastery/outcome/probe updates below."""
+    if interaction_id is not None:
+        existing = db.query(Interaction).filter_by(id=interaction_id).one_or_none()
+        if existing is not None:
+            return existing
+
     activity = db.query(ActivityInstance).filter_by(id=activity_instance_id).one()
     session = db.query(SessionModel).filter_by(id=activity.session_id).one()
     now = datetime.now(timezone.utc)
 
     interaction = Interaction(
+        **({"id": interaction_id} if interaction_id is not None else {}),
         activity_instance_id=activity_instance_id,
         item_id=item_id,
         kind="answer",

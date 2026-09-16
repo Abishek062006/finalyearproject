@@ -17,7 +17,7 @@ from app.schemas.parent import (
     RecommendationOut,
     RecommendationResponseRequest,
 )
-from app.services import parent_service
+from app.services import export_service, parent_service
 
 router = APIRouter(prefix="/parent", tags=["parent"])
 
@@ -82,3 +82,23 @@ def get_educators(child_id: str, user: User = Depends(get_current_user), db: DBS
         EducatorLinkOut(id=e.id, display_name=e.display_name, email=e.email, role=e.role)
         for e in parent_service.list_educators_for_child(db, child_id)
     ]
+
+
+@router.get("/children/{child_id}/export", response_model=dict)
+def export_child_data(child_id: str, user: User = Depends(get_current_user), db: DBSession = Depends(get_db)):
+    """docs/PLAN.md Phase 9 pilot-readiness: a parent's own data-portability
+    export of their child's full record — not anonymized (they already know
+    who their child is), gated only by guardianship."""
+    require_guardian_of(child_id, user, db)
+    return export_service.export_for_parent(db, child_id)
+
+
+@router.delete("/children/{child_id}", response_model=dict)
+def withdraw_and_delete_child(child_id: str, user: User = Depends(get_current_user), db: DBSession = Depends(get_db)):
+    """docs/PLAN.md Phase 9 pilot-readiness: full withdrawal from the study —
+    irreversibly deletes every row this child's activity created. The
+    frontend must get explicit confirmation before calling this; the API
+    itself performs no confirmation step of its own."""
+    require_guardian_of(child_id, user, db)
+    parent_service.withdraw_and_delete_child(db, child_id)
+    return {"deleted": True}

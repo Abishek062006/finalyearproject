@@ -30,6 +30,7 @@ class AnswerRequest(BaseModel):
     response_time_ms: int
     attempts: int = 1
     hints_used: int = 0
+    interaction_id: str | None = None  # client-generated UUID; a retried offline-queued answer resends the same one
 
 
 class InteractionOut(BaseModel):

@@ -17,7 +17,7 @@ python3.11 -m venv .venv        # first time only
 - Re-run `scripts.seed` any time to reset to a clean state — it drops and
   recreates all tables (dev-only convenience, see the script's docstring).
 
-Run the test suite (43 tests covering the vertical slice + the research
+Run the test suite (54 tests covering the vertical slice + the research
 guardrails from docs/SCHEMA.md §9):
 
 ```bash
@@ -115,6 +115,52 @@ LAN IP instead of `localhost` — edit `DEV_HOST` in that file.
 A debug strip at the bottom of the child screen shows the live decision
 (topic, difficulty, method, modality, and whether each was `explore` or
 `exploit`) — remove it once this stops being a research-debugging build.
+
+## Phase 9 (pilot readiness)
+
+**Consent screen additions:** a third toggle, "Include in anonymized
+research data", actually does something now — grant it and the child's
+pseudonymous session data becomes available via the educator export (below);
+revoke it and that export starts returning 403 again immediately. The same
+screen has two new buttons: **Export my child's data** (downloads a full,
+non-anonymized JSON of everything AURA has recorded — web only for now,
+native needs expo-file-system/expo-sharing not yet added) and **Withdraw &
+delete all data**, which shows an in-app confirmation panel (not a native
+`Alert.alert` — that turned out to be unreliable to trigger/verify on web)
+before irreversibly deleting every row tied to that child.
+
+**Offline mode:** answer submission (`app/src/shared/offlineQueue.ts`) never
+throws — a network failure queues the answer locally instead of losing it,
+using the client-generated `interaction_id` the schema always intended for
+this (`app/models/runtime.py`'s `Interaction.id` docstring, since Phase 1).
+Fetching a genuinely NEW activity still needs connectivity (the engine picks
+it adaptively from the answer that just happened), so the app says "you're
+offline, N answers saved, reconnect to keep playing" rather than pretending
+to work fully offline. To see the queue in action: open devtools' Network
+tab, go offline, answer a `tap`-modality item (drag_drop can't be automated
+in a browser anyway, see below), come back online, and check
+`localStorage.getItem("aura_offline_answer_queue_v1")` before/after — it
+should clear once a `nextActivity`/`submitAnswer` call succeeds again.
+
+**Crash reporting:** any uncaught render error shows a friendly "Something
+went wrong" screen instead of a blank page, and reports itself to
+`POST /telemetry/crash-reports` (deliberately unauthenticated). No dashboard
+for these yet — for now, query the `crash_reports` table directly:
+`sqlite3 backend/aura_dev.db "select * from crash_reports order by occurred_at desc limit 10;"`.
+
+**Daily backup:**
+
+```bash
+backend/.venv/bin/python -m scripts.backup_db   # writes backend/backups/aura_dev_<timestamp>.db
+```
+
+Schedule via cron for a real pilot (see the script's own docstring for the
+crontab line). SQLite only — see the script if this project ever moves to
+Postgres.
+
+**Educator training sheet:** `docs/EDUCATOR_TRAINING.md` — hand this to
+whoever is using the educator dashboard during the pilot, before their first
+session.
 
 ## Phase 8 (research evaluation)
 

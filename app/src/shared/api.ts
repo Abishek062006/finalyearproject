@@ -6,6 +6,7 @@
  */
 import { Platform } from "react-native";
 import { authStore } from "./authStore";
+import { enqueueAnswer, flushQueue, newInteractionId, type AnswerPayload } from "./offlineQueue";
 
 /**
  * Dev-only base URL resolution:
@@ -230,6 +231,11 @@ export const api = {
       body: JSON.stringify({ scope, granted }),
     }),
 
+  exportChildData: (childId: string) => request<Record<string, unknown>>(`/parent/children/${childId}/export`),
+
+  withdrawAndDeleteChild: (childId: string) =>
+    request<{ deleted: boolean }>(`/parent/children/${childId}`, { method: "DELETE" }),
+
   linkEducator: (childId: string, educatorEmail: string) =>
     request<EducatorLinkInfo>(`/parent/children/${childId}/educators`, {
       method: "POST",
@@ -267,10 +273,7 @@ export const api = {
   nextActivity: (sessionId: string) =>
     request<Activity>(`/sessions/${sessionId}/next-activity`),
 
-  submitAnswer: (
-    activityInstanceId: string,
-    payload: { item_id: string | null; correct: boolean; response_time_ms: number; attempts?: number; hints_used?: number }
-  ) =>
+  submitAnswer: (activityInstanceId: string, payload: AnswerPayload & { interaction_id?: string }) =>
     request(`/sessions/activities/${activityInstanceId}/answer`, {
       method: "POST",
       body: JSON.stringify(payload),
@@ -278,4 +281,25 @@ export const api = {
 
   endSession: (sessionId: string) =>
     request<Session>(`/sessions/${sessionId}/end`, { method: "POST" }),
+
+  /**
+   * Offline-safe answer submission (docs/ARCHITECTURE.md §8, docs/PLAN.md
+   * Phase 9): never throws. A network failure queues the answer locally
+   * (AsyncStorage) under a client-generated interaction_id instead of
+   * losing it; the backend's record_answer treats a resend of the same id
+   * as a no-op, so a queued answer can be retried safely even if the
+   * original request actually landed before the connection dropped.
+   */
+  submitAnswerReliably: async (activityInstanceId: string, payload: AnswerPayload): Promise<void> => {
+    const interactionId = newInteractionId();
+    try {
+      await api.submitAnswer(activityInstanceId, { ...payload, interaction_id: interactionId });
+    } catch {
+      await enqueueAnswer(activityInstanceId, payload, interactionId);
+    }
+    // Opportunistic, non-blocking: try to clear anything queued from an
+    // earlier drop. Never awaited by the caller — a slow/failing flush must
+    // not stall the child's next tap.
+    flushQueue((id, p) => api.submitAnswer(id, p)).catch(() => {});
+  },
 };

@@ -19,7 +19,7 @@ from app.schemas.educator import (
     LockRequest,
     TopicOut,
 )
-from app.services import educator_service
+from app.services import educator_service, export_service
 
 router = APIRouter(prefix="/educator", tags=["educator"])
 
@@ -66,3 +66,15 @@ def set_lock(child_id: str, req: LockRequest, user: User = Depends(get_current_u
     except ValueError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc))
     return LockOut(axis_code=req.axis_code, arm_code=req.arm_code, allow=req.allow)
+
+
+@router.get("/children/{child_id}/export", response_model=dict)
+def export_research_data(child_id: str, user: User = Depends(get_current_user), db: DBSession = Depends(get_db)):
+    """docs/ARCHITECTURE.md §7/§9: anonymized research export, pseudonymous
+    (child_hash, never child_id/nickname) — gated on the research_use
+    consent scope actually being granted, checked here so a missing/revoked
+    consent returns a clean 403 rather than a silently empty export."""
+    require_educator_of(child_id, user, db)
+    if not export_service.has_research_use_consent(db, child_id):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "research_use consent not granted for this child")
+    return export_service.export_for_research(db, child_id)

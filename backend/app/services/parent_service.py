@@ -262,3 +262,53 @@ def update_consent(db: DBSession, child_id: str, user_id: str, scope: str, grant
     db.commit()
     db.refresh(consent)
     return consent
+
+
+def withdraw_and_delete_child(db: DBSession, child_id: str) -> None:
+    """docs/PLAN.md Phase 9 pilot-readiness: a parent's right to fully
+    withdraw a child from the study — not just revoke consent (which stays
+    in the append-only Consent log as its own record), but actually erase
+    every row this child's activity created. Deletes in dependency order so
+    this stays correct under a real FK-enforcing database (Postgres later,
+    README's tech stack table), not just SQLite's default unenforced FKs.
+    Irreversible — the API layer must get explicit confirmation before
+    calling this."""
+    from app.models.adults import Override
+    from app.models.experiment import ArmLock, Assignment, Outcome, Verdict
+    from app.models.profile_state import EngagementState, InterestState, MasteryState, ModalityState, RetentionState
+    from app.models.runtime import ActivityInstance, ActivityInstanceAssignment, Interaction, InterventionEvent, ScheduledProbe
+    from app.models.runtime import Session as SessionModel
+    from app.models.telemetry import CrashReport
+
+    session_ids = [row.id for row in db.query(SessionModel.id).filter_by(child_id=child_id).all()]
+    activity_ids = (
+        [row.id for row in db.query(ActivityInstance.id).filter(ActivityInstance.session_id.in_(session_ids)).all()]
+        if session_ids
+        else []
+    )
+    assignment_ids = [row.id for row in db.query(Assignment.id).filter_by(child_id=child_id).all()]
+
+    if activity_ids:
+        db.query(Interaction).filter(Interaction.activity_instance_id.in_(activity_ids)).delete(synchronize_session=False)
+        db.query(ActivityInstanceAssignment).filter(ActivityInstanceAssignment.activity_instance_id.in_(activity_ids)).delete(synchronize_session=False)
+    if assignment_ids:
+        db.query(ActivityInstanceAssignment).filter(ActivityInstanceAssignment.assignment_id.in_(assignment_ids)).delete(synchronize_session=False)
+        db.query(Outcome).filter(Outcome.assignment_id.in_(assignment_ids)).delete(synchronize_session=False)
+        db.query(InterventionEvent).filter(InterventionEvent.assignment_id.in_(assignment_ids)).delete(synchronize_session=False)
+    if session_ids:
+        db.query(InterventionEvent).filter(InterventionEvent.session_id.in_(session_ids)).delete(synchronize_session=False)
+    db.query(ScheduledProbe).filter_by(child_id=child_id).delete(synchronize_session=False)
+    if activity_ids:
+        db.query(ActivityInstance).filter(ActivityInstance.id.in_(activity_ids)).delete(synchronize_session=False)
+    if assignment_ids:
+        db.query(Assignment).filter(Assignment.id.in_(assignment_ids)).delete(synchronize_session=False)
+    if session_ids:
+        db.query(SessionModel).filter(SessionModel.id.in_(session_ids)).delete(synchronize_session=False)
+
+    for model in (Verdict, ArmLock, Recommendation, Override, MasteryState, RetentionState, InterestState, ModalityState, EngagementState, Consent, CrashReport):
+        db.query(model).filter_by(child_id=child_id).delete(synchronize_session=False)
+
+    db.query(EducatorLink).filter_by(child_id=child_id).delete(synchronize_session=False)
+    db.query(Guardianship).filter_by(child_id=child_id).delete(synchronize_session=False)
+    db.query(Child).filter_by(id=child_id).delete(synchronize_session=False)
+    db.commit()
