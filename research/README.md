@@ -9,16 +9,22 @@ pieces, in the order README §4 "Filling the gap" describes them:
 2. **Ablation study** (`run_ablation_study.py`) — full AURA vs itself with
    one design choice removed at a time (hierarchical prior / early predictor
    / safety layer / randomization).
-3. **Replay study** (`replay/`) — digitize a real published single-case
+3. **Paired significance testing** (`run_significance.py`) — paired t-test /
+   Wilcoxon / exact McNemar on top of (1) and (2)'s already-collected
+   results, Holm-Bonferroni adjusted across each metric's family of
+   comparisons. Reads the existing CSVs; doesn't re-run either study.
+4. **Replay study** (`replay/`) — digitize a real published single-case
    graph and ask whether AURA's stopping rule reaches the same verdict,
    sooner. The harness is real and tested; the real published data is not
    included (see `replay/README.md` for why, and how to add it).
 
-Everything in (1) and (2) is real, executed code producing real numbers in
-`results/` — not a plan for numbers that could exist. Re-run either study any
-time with the commands below; results will vary slightly run to run (the
-population and Thompson sampling are both randomized, seeded but not fixed
-across code changes) but the qualitative pattern should hold.
+Everything in (1), (2), and (3) is real, executed code producing real
+numbers in `results/` — not a plan for numbers that could exist. Re-run
+either study any time with the commands below; results will vary slightly
+run to run (the population and Thompson sampling are both randomized,
+seeded but not fixed across code changes) but the qualitative pattern
+should hold — re-run `run_significance.py` afterward too, since it reads
+whatever's currently in the CSVs.
 
 ## Why this drives the real backend, not a re-implementation
 
@@ -43,18 +49,19 @@ production changes made this possible without duplicating its logic:
 
 ```bash
 cd /path/to/final-year-project
-backend/.venv/bin/pip install -r research/requirements.txt   # matplotlib, once
+backend/.venv/bin/pip install -r research/requirements.txt   # matplotlib + scipy, once
 backend/.venv/bin/python -m research.run_simulation_study     # ~1-2 minutes
 backend/.venv/bin/python -m research.run_ablation_study        # ~4-5 minutes
-backend/.venv/bin/python -m pytest research/tests/ -v           # sanity tests, <1s
+backend/.venv/bin/python -m research.run_significance            # <1 second
+backend/.venv/bin/python -m pytest research/tests/ -v              # sanity tests, <1s
 ```
 
 Output lands in `results/`: `simulation_results.csv` / `simulation_summary.md`
-/ `figures/regret_curves.png`, and `ablation_results.csv` /
-`ablation_summary.md`. `results/RESULTS.md` is the human-written narrative
-read of the numbers actually produced by the runs in this repo — re-read it
-after re-running the studies, since a fresh run's exact figures will differ
-slightly.
+/ `figures/regret_curves.png`, `ablation_results.csv` / `ablation_summary.md`,
+and `significance.md` (the paired tests). `results/RESULTS.md` is the
+human-written narrative read of the numbers actually produced by the runs in
+this repo — re-read it after re-running the studies, since a fresh run's
+exact figures will differ slightly.
 
 ## What the simulated population represents, honestly
 
@@ -80,9 +87,11 @@ research/
 ├── ablations.py              # 4 DecisionEngine subclasses, one design choice removed each
 ├── metrics.py                 # regret, sessions-to-decision, mastery, retention, distress, recovery
 ├── harness.py                  # drives one child through one condition, returns a RunLog
-├── run_simulation_study.py      # AURA vs 5 baselines -> results/simulation_*
-├── run_ablation_study.py         # AURA vs 4 ablations -> results/ablation_*
-├── replay/                        # single-case replay harness (see replay/README.md)
-├── tests/                          # sanity tests, not a re-run of the full studies
-└── results/                         # real output of the last run, + RESULTS.md narrative
+├── significance.py              # paired t-test / Wilcoxon / exact McNemar + Holm-Bonferroni
+├── run_simulation_study.py       # AURA vs 5 baselines -> results/simulation_*
+├── run_ablation_study.py          # AURA vs 4 ablations -> results/ablation_*
+├── run_significance.py             # paired tests on top of the two CSVs above -> results/significance.md
+├── replay/                          # single-case replay harness (see replay/README.md)
+├── tests/                            # sanity tests, not a re-run of the full studies
+└── results/                           # real output of the last run, + RESULTS.md narrative
 ```

@@ -9,15 +9,13 @@ below should hold.
 
 **Honesty note before the numbers:** N=24 (simulation study) and N=16
 (ablation study) simulated children are small samples for policy comparison.
-Several per-child standard deviations below are comparable to their means —
-this is a proof-of-mechanism study demonstrating the evaluation
-infrastructure works end-to-end against the real engine, not a well-powered
-statistical comparison ready to cite as a significant effect. The natural
-next step (not yet done here) is a proper paired significance test across
-children within each condition pair — cheap to add since every condition
-already runs against a common-random-numbers-matched clone of the same
-simulated child (`SimulatedChild.clone_for_condition`), which is exactly
-what a paired test wants.
+Several per-child standard deviations below are comparable to their means.
+§3 now runs the actual paired significance tests this note used to say
+were "not yet done" — read it alongside the descriptive tables below rather
+than instead of them: several real-looking gaps here do NOT survive
+multiple-comparison correction at this sample size, and §3 says exactly
+which ones do and don't, rather than letting a large mean difference alone
+imply a confirmed effect.
 
 ## 1. Simulation study — AURA vs 5 baselines
 
@@ -134,7 +132,70 @@ at all), 5 conditions per child. See `ablation_results.csv`.
   with the mechanistic reason why, is the correct call here — not
   re-tuning the simulator after the fact to manufacture a bigger number.
 
-## 3. Replay study
+## 3. Paired significance testing
+
+Full table: `significance.md` (mechanically generated,
+`research/run_significance.py`, re-run any time the CSVs change — under a
+second, doesn't re-run either study). Every test is PAIRED — each simulated
+child faced every condition as a clone of the same ground truth under the
+same seed (common random numbers), so a per-child difference isolates the
+condition's effect rather than child-to-child noise. p-values are
+Holm-Bonferroni adjusted within each metric's family (5 baselines, or 4
+ablations) — read the adjusted column, not the raw one, to decide
+significance.
+
+**What survives correction, and what doesn't:**
+
+- **Simulation study, cumulative regret:** AURA significantly beats
+  `static`, `correlational`, and `expert_manual` (Holm-adjusted t-test
+  p = 0.024, 0.016, 0.044). `heuristic_adaptive` is NOT significantly
+  different from AURA (p = 0.79) — matches §1's descriptive finding that
+  these two form one low-regret cluster; they really are statistically
+  indistinguishable here, not just "close-looking". `population_level`
+  narrowly misses significance (p = 0.128) despite a large mean difference
+  (11.56 vs 20.90) — a real example of N=24 not being enough power to
+  confirm every real-looking gap.
+- **Simulation study, distress events:** the same three baselines
+  (`static`, `correlational`, `expert_manual`) that lost on regret also
+  lose here, significantly (p = 0.037, 0.037, 0.037 after adjustment) —
+  the clearest, most consistent finding across the whole table, and the
+  one this project's actual design goal (safety, not raw speed) most
+  directly predicts.
+- **Simulation study, 7-day retention and "reached correct decision":**
+  **nothing survives correction** despite AURA having the best or
+  near-best mean on every row in §1's table. This is the honest cost of
+  N=24 with this much per-child variance — report the descriptive numbers
+  as suggestive, not confirmed, for these two outcomes.
+- **Ablation study, cumulative regret:** `no_early_predictor` is
+  overwhelming (Holm-adjusted t-test p = 0.0003, Cohen's d_z = −1.30 — a
+  very large paired effect) — by far the strongest single result in either
+  study, and it directly supports README's "ends comparisons in days, not
+  weeks" claim by showing what breaks when that mechanism is removed.
+  `no_randomization` and `no_hierarchical_prior` do NOT survive correction
+  at N=16 despite real descriptive gaps (§2).
+- **Ablation study, `no_safety_layer`:** now formally confirmed, not just
+  observed — the per-child differences are exactly zero for every single
+  child on every metric, so no test statistic is even computable (reported
+  as "n/a", not a fabricated p = 1.0). This is the strongest possible
+  version of the null result §2 already described in words.
+- **Ablation study, "reached correct decision":** `no_hierarchical_prior`
+  converges 50% of the time vs. `full_aura`'s 12% (raw McNemar
+  p = 0.031) — suggestive, matching §2's "unpooled posteriors swing faster"
+  mechanism, but does NOT survive Holm correction (p = 0.094) at N=16. Worth
+  a real pilot or a larger simulated N before citing as confirmed.
+
+**Bottom line for the paper:** the safe claims, confirmed even after
+correcting for testing 9 metrics across two studies, are (1) AURA beats
+several baselines on regret and — most clearly — on distress events, (2) it
+is statistically indistinguishable from the heuristic baseline on raw
+regret specifically, and (3) removing the early-outcome predictor is
+unambiguously the single most damaging ablation. Retention, decision-speed,
+and the hierarchical-prior/randomization ablations are real-looking but
+underpowered at this N — accurately described as suggestive future-work
+findings, not confirmed results, until a larger simulated population or the
+real pilot provides more power.
+
+## 4. Replay study
 
 Harness (`research/replay/harness.py`) is built and unit-tested against a
 hand-made synthetic example — see `research/replay/README.md` for exactly
@@ -150,6 +211,10 @@ result.
 - **An ablation table** (§2 above) isolating each of the 4 named design
   choices — done, with one honestly-reported null result and a clear
   explanation of why, rather than a hidden or fabricated effect.
-- **Not yet done:** paired significance testing on top of these tables, and
-  the replay study's real data. Both are natural, comparatively cheap next
-  steps — the paired design and harness for both already exist.
+- **Paired significance testing** (§3 above) — done. Confirms 3 of the
+  findings above survive multiple-comparison correction at this sample
+  size, and is equally explicit about which real-looking gaps don't.
+- **Not yet done:** the replay study's real data — needs a human with
+  journal access and PlotDigitizer (`research/replay/README.md`), not more
+  code. A larger simulated N would also give several "suggestive but
+  underpowered" §3 findings a real chance to confirm or not.

@@ -258,9 +258,29 @@ contribution. Features may be cut; that may not.
     design rules, the replay harness checked against a synthetic example.
     Full backend suite (43/43) reconfirmed unaffected by the two production
     changes above.
-  - **Not yet done:** paired significance testing on top of the two result
-    tables (the common-random-numbers paired design already in place makes
-    this cheap to add later); real published data in the replay study.
+  - **Paired significance testing — since added** (`research/significance.py`,
+    `run_significance.py`): paired t-test + Wilcoxon signed-rank for
+    always-defined metrics (regret, retention, distress events) and exact
+    McNemar for sometimes-undefined "did it converge" metrics
+    (trials-to-mastery, sessions-to-decision), Holm-Bonferroni adjusted
+    within each metric's family of comparisons. Reads the existing result
+    CSVs directly — no re-run of either study needed. Real findings, not
+    hypothetical: AURA significantly beats 3 of 5 baselines on regret and
+    distress events after correction (not `heuristic_adaptive`, which is
+    genuinely statistically indistinguishable from AURA on raw regret, not
+    just descriptively close); `no_early_predictor` is a very large,
+    highly significant ablation effect (Cohen's d_z = −1.30); `no_safety_layer`'s
+    null result is now a formally confirmed zero-variance case, not just an
+    observation; retention and decision-speed comparisons mostly do NOT
+    survive correction at N=16-24, reported as suggestive rather than
+    confirmed rather than overstated. 9 new sanity tests
+    (`research/tests/test_significance.py`) — **24/24 research tests
+    passing.** Full write-up: `research/results/significance.md` +
+    `research/results/RESULTS.md` §3.
+  - **Not yet done:** real published data in the replay study (needs a
+    human with journal access and PlotDigitizer, not more code); a larger
+    simulated N to give the "suggestive but underpowered" significance
+    findings above a real chance to confirm or not.
 - **Phase 9 (pilot readiness) — in progress; the code half is done, the
   fieldwork half (partner school, ethics approval, the pilot itself, paper
   writing) is not, and isn't something a coding session can do.** Built:
