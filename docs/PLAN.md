@@ -339,12 +339,18 @@ contribution. Features may be cut; that may not.
     child genuinely disappeared from the list and a DELETE with a real 200
     hit the server.
   - **Not done, and out of scope for a coding session**: the actual pilot
-    (partner school, 5-10 children, 4-6 weeks), ethics/IRB approval, parent
-    consent/assent paperwork, a real privacy notice reviewed by someone
-    qualified to write one, SUS usability testing with real teachers and
-    parents, and the paper itself. Phase 8's simulation results alone
-    already support a paper per docs/PLAN.md's own fallback note — the
-    pilot adds real-child validation on top, it isn't a prerequisite to
+    (partner school, 5-10 children, 4-6 weeks), ethics/IRB approval, real
+    (reviewed, not just drafted) consent/assent paperwork and privacy
+    notice, SUS usability testing with real teachers and parents, and the
+    paper itself. First drafts of the IRB application, consent form, child
+    assent guide, privacy notice, and a partner-site checklist now exist
+    (`docs/ETHICS/`) — drafting them is what a coding session CAN do; a real
+    ethics board, lawyer, and clinical/BCBA advisor actually reviewing and
+    approving them is not, and `docs/ETHICS/README.md` says so explicitly
+    rather than let a finished-looking draft be mistaken for that review.
+    Phase 8's simulation results alone already support a paper per
+    docs/PLAN.md's own fallback note — the pilot adds real-child validation
+    on top, it isn't a prerequisite to
     start writing.
 
 ---
@@ -353,13 +359,18 @@ contribution. Features may be cut; that may not.
 
 These have the longest lead time and block the pilot, not the code.
 
-| Task | When | Why |
-|---|---|---|
-| Identify a partner special school / therapy centre | Week 1–3 | Everything in Phase 9 depends on it |
-| Draft + submit ethics / IRB application | Week 2–6 | Approval takes 2–4 months |
-| Parent consent + assent forms, privacy notice | Week 4–8 | Needed with the ethics application |
-| Meet one special educator / BCBA as advisor | Week 2 onward | Validates the teaching options we compare |
-| Maintain the reference library (Zotero) | Continuous | Paper writing |
+| Task | When | Why | Status |
+|---|---|---|---|
+| Identify a partner special school / therapy centre | Week 1–3 | Everything in Phase 9 depends on it | Not started — checklist drafted (`docs/ETHICS/PARTNER_SITE_CHECKLIST.md`) |
+| Draft + submit ethics / IRB application | Week 2–6 | Approval takes 2–4 months | **Draft written** (`docs/ETHICS/IRB_APPLICATION_DRAFT.md`) — not reviewed or submitted |
+| Parent consent + assent forms, privacy notice | Week 4–8 | Needed with the ethics application | **Drafts written** (`docs/ETHICS/PARENT_CONSENT_FORM.md`, `CHILD_ASSENT_GUIDE.md`, `PRIVACY_NOTICE.md`) — not reviewed |
+| Meet one special educator / BCBA as advisor | Week 2 onward | Validates the teaching options we compare | Not started — this is who reviews the drafts above, not something a coding session can substitute for |
+| Maintain the reference library (Zotero) | Continuous | Paper writing | Not started |
+
+`docs/ETHICS/README.md` has the full checklist of what real human/
+institutional steps still stand between these drafts and anything usable —
+drafting them is the part a coding session can do; a real ethics board,
+lawyer, and clinical advisor reviewing them is not.
 
 ---
 
