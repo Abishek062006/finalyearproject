@@ -210,12 +210,38 @@ demonstration of why running the numbers at a larger N mattered.
 
 ## 4. Replay study
 
-Harness (`research/replay/harness.py`) is built and unit-tested against a
-hand-made synthetic example — see `research/replay/README.md` for exactly
-what's real vs what still needs a real published figure digitized with
-PlotDigitizer. No real published case is replayed yet; this is an
-infrastructure-complete, data-pending piece of Phase 8, not a finished
-result.
+Harness (`research/replay/harness.py`) and batch runner
+(`research/replay/run_replay_study.py`) are built and tested. **One real
+published case has now been added** — see `research/replay/results/
+replay_summary.md` and `research/replay/cases/oz_alkoyak_vuran_2025_emre.*`
+for the full detail; summary here:
+
+- **Source:** Öz-Alkoyak & Vuran (2025), *Distributed and Massed Practices
+  in Teaching Concepts to Children with Autism*, Özel Eğitim Dergisi
+  (Turkish Journal of Special Education) — genuinely open access (CC-BY-NC-ND,
+  via DergiPark, no paywall), 4 autistic children aged 4.5-5.5, an
+  alternating-treatments single-case design comparing distributed vs. massed
+  practice — a close match to the exact literature README §2 already cites
+  (Majdalany et al. 2014; Haq & Kodak 2015 compare the same two conditions,
+  but neither was found openly accessible — see `replay/README.md`).
+- **Digitized:** one of the study's 4 participants ("Emre"), read directly
+  off the published Figure 2 by Claude (visual estimation from a 400dpi
+  render, NOT run through PlotDigitizer — see the case's own `.json` for
+  the full, explicit precision caveats and what's NOT yet covered: the
+  other 3 children's panels are in the same freely-available source and
+  are a natural, low-effort next case to add).
+- **Result: AURA's replayed stopping rule reaches the SAME verdict the
+  published study reached** (distributed practice was the better condition
+  for this child — matching all 4 of the paper's own participants) **5
+  sessions before the study's own full length** (session 18 of 23) — a
+  real, concrete instance of README §2's "ends comparisons in days, not
+  weeks" claim, on an actual published child, not a simulation.
+- This is one case, digitized by AI visual estimate rather than a
+  precision tool, and should be read as a promising first real data point
+  for the paper, not a statistically powered claim — the honest framing
+  matches every other "N=1 so far" caveat in this document. Independent
+  human re-verification (ideally with real PlotDigitizer) before citing
+  the exact numbers in a submission is still the right next step.
 
 ## What this supports in the paper
 
@@ -229,6 +255,13 @@ result.
   sample size (N=80 / N=48) large enough that MOST of the descriptive
   findings in §1/§2 now have real statistical backing, not just a
   suggestive mean difference.
-- **Not yet done:** the replay study's real data — needs a human with
-  journal access and PlotDigitizer (`research/replay/README.md`), not more
-  code.
+- **A first real replay case** (§4) — AURA's stopping rule reaches the
+  same verdict a real published study reached, 5 sessions sooner, on an
+  actual autistic child from an actual paper. One case, AI-digitized
+  pending human re-verification, not yet a powered claim — but no longer
+  "not yet done."
+- **Not yet done:** the other 3 children's data in the same open-access
+  source (a natural, low-effort next case — same PDF, same figure, just
+  more panels to read); independent human verification of the digitized
+  values (ideally with real PlotDigitizer) before the exact numbers go
+  into a submission; a second independent published source.

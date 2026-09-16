@@ -196,3 +196,20 @@ def test_replay_finds_the_correct_winner_on_the_synthetic_example():
     assert result["agrees_with_reference"] is True
     assert result["session_of_decision"] is not None
     assert result["sessions_saved"] > 0
+
+
+def test_replay_agrees_with_the_first_real_published_case():
+    """Regression test for research/replay/cases/oz_alkoyak_vuran_2025_emre.*
+    — a REAL digitized case (Öz-Alkoyak & Vuran, 2025), not synthetic. Pins
+    the actual headline finding (research/results/RESULTS.md §4) so a future
+    edit to the CSV or the harness can't silently change it without a test
+    noticing."""
+    from pathlib import Path
+
+    csv_path = Path(__file__).resolve().parent.parent / "replay" / "cases" / "oz_alkoyak_vuran_2025_emre.csv"
+    result = replay_file(csv_path, reference_winner="A")
+    assert result["winner"] == "A"  # distributed practice — matches the published study's own conclusion
+    assert result["agrees_with_reference"] is True
+    assert result["session_of_decision"] == 18
+    assert result["total_sessions"] == 23
+    assert result["sessions_saved"] == 5

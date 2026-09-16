@@ -175,12 +175,16 @@ backend/.venv/bin/pip install -r research/requirements.txt   # matplotlib + scip
 backend/.venv/bin/python -m research.run_simulation_study     # AURA vs 5 baselines, ~1-2 min
 backend/.venv/bin/python -m research.run_ablation_study        # AURA vs 4 ablations, ~4-5 min
 backend/.venv/bin/python -m research.run_significance            # paired significance tests, <1s
-backend/.venv/bin/python -m pytest research/tests/ -v               # sanity tests, <1s
+backend/.venv/bin/python -m research.replay.run_replay_study       # replay every case in replay/cases/, <1s
+backend/.venv/bin/python -m pytest research/tests/ -v                 # sanity tests, <1s
 ```
 
 Results land in `research/results/` — `RESULTS.md` is the human-written read
 of the actual numbers from the last run; re-run the studies and it may need
-updating, since both use a randomized simulated population.
+updating, since both use a randomized simulated population. Replay results
+land in `research/replay/results/` instead — one real published case is in
+there now (`research/replay/README.md`), alongside the synthetic mechanism
+check.
 
 ## Known verification gap: drag-and-drop in a browser
 

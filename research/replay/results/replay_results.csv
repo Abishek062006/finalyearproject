@@ -1,2 +1,3 @@
 case,is_synthetic,citation,total_sessions,session_of_decision,winner,reference_winner,agrees_with_reference,sessions_saved
 example_synthetic_case,True,"SYNTHETIC EXAMPLE — hand-built for this repo, not a real publication. Demonstrates the CSV format and proves the harness mechanism works, nothing more.",8,6,A,A,True,2
+oz_alkoyak_vuran_2025_emre,False,"Öz-Alkoyak, H., & Vuran, S. (2025). Otizmli çocuklara kavram öğretiminde dağıtılmış ve sıklaştırılmış uygulamalar [Distributed and massed practices in teaching concepts to children with autism]. Ankara Üniversitesi Eğitim Bilimleri Fakültesi Özel Eğitim Dergisi, 26(3), 331-345. https://doi.org/10.21565/ozelegitimdergisi.1464202",23,18,A,A,True,5

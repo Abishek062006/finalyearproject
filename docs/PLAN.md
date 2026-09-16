@@ -198,11 +198,10 @@ contribution. Features may be cut; that may not.
     rendered the same evidence as friendly chips.
 - **Phase 8 — mostly done.** Child simulator, 5 baselines, simulation study,
   ablation study, paired significance testing (re-run at a larger N for
-  real power) — all real, executed, producing real numbers in
-  `research/results/`. Replay study infrastructure, including a validated
-  batch runner ready for real cases, built and tested; real published data
-  not yet added (needs a human with PlotDigitizer and a paper, not code —
-  see `research/replay/README.md`).
+  real power), and now one real replay case — all real, executed,
+  producing real numbers in `research/results/`. Only remaining gap:
+  3 more children's data from the same open-access source, and a second
+  independent published source (`research/replay/README.md`).
   - **The "AURA" condition in every study is the literal production
     `DecisionEngine`**, not a re-implementation — every module in
     `research/` drives `app.engine.*`/`app.services.*` directly against a
@@ -305,9 +304,29 @@ contribution. Features may be cut; that may not.
     from the real-case agreement rate. 10 new tests
     (`research/tests/test_replay_batch.py`) — **34/34 research tests
     passing.**
-  - **Not yet done:** actually getting real published data into
-    `research/replay/cases/` (needs a human with journal access and
-    PlotDigitizer, not more code).
+  - **A first real published case, since added:**
+    `research/replay/cases/oz_alkoyak_vuran_2025_emre.*` — Öz-Alkoyak &
+    Vuran (2025), a genuinely open-access (CC-BY-NC-ND, DergiPark, no
+    paywall) study of 4 autistic children comparing distributed vs. massed
+    practice, found by actually searching for an accessible alternative
+    after the originally-cited Majdalany et al. 2014 / Haq & Kodak 2015
+    turned out to be paywalled with no open copy found. One participant's
+    data (of 4) digitized by visual estimation (Claude reading a 400dpi
+    render of the published figure directly — not run through
+    PlotDigitizer; full precision caveats in the case's own `.json`).
+    **Result: AURA's replayed stopping rule reaches the exact verdict the
+    published study reached, 5 sessions before the study's own full
+    length** (session 18 of 23) — README §2's "ends comparisons in days,
+    not weeks" claim, demonstrated on a real published child for the first
+    time, not just in simulation. Pinned as a regression test
+    (`test_replay_agrees_with_the_first_real_published_case`) —
+    **35/35 research tests passing.** Full write-up:
+    `research/results/RESULTS.md` §4.
+  - **Not yet done:** the other 3 children in that same source (low-effort
+    next step — same figure, more panels); a second independent published
+    source; independent human re-verification of the digitized values
+    (ideally with real PlotDigitizer) before citing the exact numbers in a
+    submission.
 - **Phase 9 (pilot readiness) — in progress; the code half is done, the
   fieldwork half (partner school, ethics approval, the pilot itself, paper
   writing) is not, and isn't something a coding session can do.** Built:

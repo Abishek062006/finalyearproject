@@ -16,21 +16,33 @@ published study, and how much sooner?**
   `MIN_EVIDENCE_TRIALS=8`), operating on a plain CSV instead of the app's
   database.
 - `run_replay_study.py` is real, tested code too — it batch-processes every
-  case in `cases/` and writes an aggregate report to `results/`, so that
-  once a real case exists, turning it (and every case after it) into a
-  result is one command, not a one-off script per case.
+  case in `cases/` and writes an aggregate report to `results/`.
 - `cases/example_synthetic_case.csv` (+ its `.json` metadata) is **entirely
-  made up by hand** for this repo — a plausible 8-session
-  alternating-treatments shape, NOT digitized from any real publication. It
-  exists only to prove the harness and batch runner actually work, and its
+  made up by hand** — NOT digitized from any real publication. It exists
+  only to prove the harness and batch runner actually work, and its
   metadata explicitly marks it `"is_synthetic": true` so it can never be
   silently mistaken for a real finding in a report.
-- **No real published data is included.** I (the assistant that built this)
-  cannot access or reproduce a real journal figure — that would also be a
-  copyright problem to embed in this repo. Getting real cases in here is a
-  manual step for whoever runs this study next — this file, and
-  `run_replay_study.py`'s validation, exist to make that step as close to
-  "drop two files in a folder and run one command" as possible.
+- **One real published case now exists:**
+  `cases/oz_alkoyak_vuran_2025_emre.csv` — digitized from Öz-Alkoyak &
+  Vuran (2025), *Distributed and Massed Practices in Teaching Concepts to
+  Children with Autism* (Özel Eğitim Dergisi, genuinely open access via
+  DergiPark, CC-BY-NC-ND, no paywall) — 4 autistic children, an
+  alternating-treatments design comparing distributed vs. massed practice.
+  One of the 4 participants ("Emre") is digitized so far; the values were
+  read directly off the published Figure 2 by Claude (an AI assistant) at
+  400dpi — a genuine good-faith visual estimate, **not** run through
+  PlotDigitizer, with the exact precision caveats spelled out in that
+  case's own `.json` `notes` field. Result:
+  `research/results/RESULTS.md` §4 — AURA's replayed stopping rule reaches
+  the same verdict the paper itself reached, 5 sessions before the study's
+  own full length.
+- **Still open:** the other 3 children in that same freely-available
+  source (a natural, low-effort next case — same PDF, same figure, just
+  more panels); a second independent published source (the original
+  papers README §2 cites — Majdalany et al. 2014, Haq & Kodak 2015 — were
+  checked and are paywalled, no open-access copy found); and independent
+  human re-verification of the digitized values (ideally with real
+  PlotDigitizer) before any of these numbers are cited in a submission.
 
 ## How to add a real case
 
