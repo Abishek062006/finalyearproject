@@ -27,7 +27,10 @@ from research.metrics import regret_curve, summarize
 from research.simulator.child import METHOD_ARMS, MODALITY_ARMS, THEME_ARMS, generate_population
 
 RESULTS_DIR = Path(__file__).resolve().parent / "results"
-N_EVAL = 24
+N_EVAL = 80  # bumped from 24 (docs/PLAN.md Phase 8 follow-up: give the underpowered findings in
+# research/results/significance.md a real chance) — generate_population(n, seed) draws each
+# child's parameters sequentially from one shared rng, so child 0..23 here are IDENTICAL to the
+# original N=24 run; this is a strict extension of that population, not a fresh unrelated sample.
 N_ACTIVITIES = 40
 EVAL_SEED = 42
 

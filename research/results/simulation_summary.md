@@ -1,8 +1,8 @@
 | Condition | Cumulative regret ↓ | Activities to mastery ↓ | 7-day retention % ↑ | Activities to correct decision ↓ | Distress events ↓ | Engagement recovery % ↑ |
 |---|---|---|---|---|---|---|
-| AURA | 11.56 ± 8.57 | 54.4 ± 59.2 activities (22/24 converged) | 82.61 ± 25.26 | 20.3 ± 10.1 activities (6/24 converged) | 0.71 ± 1.77 | 67% (n=3) |
-| static | 24.36 ± 21.84 | 11.5 ± 11.4 activities (14/24 converged) | 65.49 ± 39.55 | 0.0 ± 0.0 activities (1/24 converged) | 3.50 ± 5.27 | n/a (no mechanism) |
-| heuristic_adaptive | 12.27 ± 14.05 | 32.8 ± 39.0 activities (21/24 converged) | 83.22 ± 25.96 | 2.0 ± 1.4 activities (3/24 converged) | 1.08 ± 2.31 | n/a (no mechanism) |
-| correlational | 23.99 ± 19.13 | 11.4 ± 11.2 activities (15/24 converged) | 75.62 ± 33.26 | 0.0 ± 0.0 activities (2/24 converged) | 3.08 ± 4.48 | n/a (no mechanism) |
-| population_level | 20.90 ± 22.52 | 14.7 ± 14.0 activities (17/24 converged) | 74.64 ± 32.06 | 0.0 ± 0.0 activities (2/24 converged) | 2.96 ± 5.22 | n/a (no mechanism) |
-| expert_manual | 21.00 ± 18.89 | 18.1 ± 16.2 activities (17/24 converged) | 73.01 ± 34.68 | 2.0 ± 0.0 activities (1/24 converged) | 3.29 ± 5.06 | n/a (no mechanism) |
+| AURA | 8.30 ± 7.64 | 34.1 ± 42.6 activities (76/80 converged) | 91.08 ± 14.92 | 24.4 ± 9.1 activities (17/80 converged) | 0.44 ± 1.21 | 67% (n=6) |
+| static | 25.09 ± 23.58 | 10.5 ± 8.3 activities (50/80 converged) | 71.76 ± 36.24 | 0.0 ± 0.0 activities (1/80 converged) | 3.21 ± 5.01 | n/a (no mechanism) |
+| heuristic_adaptive | 11.70 ± 13.06 | 26.5 ± 33.4 activities (70/80 converged) | 88.51 ± 19.78 | 4.6 ± 4.8 activities (5/80 converged) | 0.88 ± 1.73 | n/a (no mechanism) |
+| correlational | 21.25 ± 22.31 | 14.8 ± 21.6 activities (57/80 converged) | 75.82 ± 34.22 | 0.0 ± 0.0 activities (5/80 converged) | 2.62 ± 4.74 | n/a (no mechanism) |
+| population_level | 20.54 ± 23.82 | 18.1 ± 29.9 activities (56/80 converged) | 79.66 ± 30.07 | 0.0 ± 0.0 activities (5/80 converged) | 2.65 ± 5.10 | n/a (no mechanism) |
+| expert_manual | 15.40 ± 17.96 | 18.3 ± 17.2 activities (67/80 converged) | 80.58 ± 29.43 | 1.6 ± 0.8 activities (5/80 converged) | 1.91 ± 4.01 | n/a (no mechanism) |

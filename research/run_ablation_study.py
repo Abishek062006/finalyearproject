@@ -21,7 +21,8 @@ from research.run_simulation_study import _fmt_convergence, _fmt_mean_sd, write_
 from research.simulator.child import generate_population
 
 RESULTS_DIR = Path(__file__).resolve().parent / "results"
-N_EVAL = 16
+N_EVAL = 48  # bumped from 16 (docs/PLAN.md Phase 8 follow-up — see run_simulation_study.py's
+# N_EVAL comment: same determinism argument, child 0..15 here are identical to the original run)
 N_ACTIVITIES = 60  # more room than the baseline study: no_early_predictor needs several 7-day probe cycles to have any chance
 EVAL_SEED = 43
 
