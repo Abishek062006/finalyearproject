@@ -68,5 +68,9 @@ class SessionPlanner:
             raise ValueError("No topics seeded — run scripts/seed.py")
 
         scored = [(t, self.learner_model.get_mastery(child_id, t.id).p) for t in topics]
-        topic, _ = min(scored, key=lambda pair: pair[1])
+        # Tie-break on topic code, not insertion order: with more than one
+        # topic now seeded (docs/PLAN.md's curriculum-breadth follow-up),
+        # relying on whatever order the DB happens to return rows in for a
+        # plain `.all()` is fragile — make the tie-break explicit instead.
+        topic, _ = min(scored, key=lambda pair: (pair[1], pair[0].code))
         return TopicChoice(topic_id=topic.id, topic_code=topic.code, reason="lowest_mastery")

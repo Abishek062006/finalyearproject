@@ -22,7 +22,11 @@ def test_retrying_the_same_interaction_id_does_not_double_count(seeded_db, child
     )
     assert first.id == client_id
 
-    mastery = seeded_db.query(MasteryState).filter_by(child_id=child_id).one()
+    # Two topics are seeded now (docs/PLAN.md content-breadth follow-up), so
+    # a plain child_id filter is no longer guaranteed to be a single row —
+    # SessionPlanner.next_topic reads (and thereby lazily creates, via
+    # LearnerModel._row) a mastery row for every topic just to compare them.
+    mastery = seeded_db.query(MasteryState).filter_by(child_id=child_id, topic_id=activity.spec["topic_id"]).one()
     assert mastery.trials == 1
 
     # Simulate a dropped-connection retry: same activity, same item, SAME client id.
@@ -43,5 +47,5 @@ def test_without_an_interaction_id_behaviour_is_unchanged(seeded_db, child_id):
 
     interaction = session_service.record_answer(seeded_db, activity.id, item_id=item["id"], correct=True, response_time_ms=1000)
     assert interaction.id is not None
-    mastery = seeded_db.query(MasteryState).filter_by(child_id=child_id).one()
+    mastery = seeded_db.query(MasteryState).filter_by(child_id=child_id, topic_id=activity.spec["topic_id"]).one()
     assert mastery.trials == 1

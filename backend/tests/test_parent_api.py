@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 
 from app.db import get_db
 from app.main import app
+from app.services import companion_service
 
 
 def make_client(seeded_db):
@@ -141,3 +142,83 @@ def test_consent_history_is_append_only_and_latest_wins(seeded_db):
     r = client.get(f"/parent/children/{child_id}/consent", headers=headers)
     by_scope = {c["scope"]: c["granted"] for c in r.json()}
     assert by_scope["camera"] is True  # latest row wins, old one untouched
+
+
+def test_companion_search_and_confirm_end_to_end(seeded_db, monkeypatch):
+    """docs/PLAN.md UX-overhaul Phase C: a parent searches for something
+    their child loves, picks one of the returned candidates, and it becomes
+    the child's guide character on the next activity. Network calls
+    (Commons search + image download) are monkeypatched — the real
+    Wikimedia integration is verified manually, not on every test run."""
+    monkeypatch.setattr(
+        companion_service,
+        "search_companion_images",
+        lambda query: [{"image_url": "https://example.org/train1.jpg", "source_title": "Steam train.jpg", "license": "CC BY-SA 4.0"}],
+    )
+    monkeypatch.setattr(
+        companion_service,
+        "_download_and_square",
+        lambda url, dest, size=480: dest.parent.mkdir(parents=True, exist_ok=True) or dest.write_bytes(b"fake"),
+    )
+
+    client = make_client(seeded_db)
+    r = client.post("/auth/register", json={"email": "parent4@example.com", "password": "x", "display_name": "P"})
+    headers = {"Authorization": f"Bearer {r.json()['access_token']}"}
+    r = client.post("/parent/children", headers=headers, json={"nickname": "Rae", "birth_year_month": "2020-03", "initial_interests": []})
+    child_id = r.json()["id"]
+
+    r = client.post(f"/parent/children/{child_id}/companion/search", headers=headers, json={"query": "trains"})
+    assert r.status_code == 200, r.text
+    candidates = r.json()
+    assert len(candidates) == 1
+    assert candidates[0]["source_title"] == "Steam train.jpg"
+
+    r = client.post(
+        f"/parent/children/{child_id}/companion/confirm",
+        headers=headers,
+        json={"query": "trains", "image_url": candidates[0]["image_url"], "source_title": candidates[0]["source_title"]},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["companion_name"] == "Trains"
+    assert r.json()["companion_image_url"] == f"/media/companions/{child_id}.jpg"
+
+    # And it now shows up on the child themselves.
+    r = client.get("/parent/children", headers=headers)
+    assert r.json()[0]["companion_name"] == "Trains"
+    assert r.json()[0]["companion_image_url"] == f"/media/companions/{child_id}.jpg"
+
+
+def test_companion_confirm_rejects_an_unsafe_query(seeded_db):
+    client = make_client(seeded_db)
+    r = client.post("/auth/register", json={"email": "parent5@example.com", "password": "x", "display_name": "P"})
+    headers = {"Authorization": f"Bearer {r.json()['access_token']}"}
+    r = client.post("/parent/children", headers=headers, json={"nickname": "Rae", "birth_year_month": "2020-03", "initial_interests": []})
+    child_id = r.json()["id"]
+
+    r = client.post(
+        f"/parent/children/{child_id}/companion/confirm",
+        headers=headers,
+        json={"query": "scary monster", "image_url": "https://example.org/x.jpg", "source_title": "x"},
+    )
+    assert r.status_code == 400
+
+
+def test_stranger_cannot_set_someone_elses_companion(seeded_db):
+    client = make_client(seeded_db)
+    r = client.post("/auth/register", json={"email": "a2@example.com", "password": "x", "display_name": "A"})
+    token_a = r.json()["access_token"]
+    r = client.post(
+        "/parent/children", headers={"Authorization": f"Bearer {token_a}"},
+        json={"nickname": "Rae", "birth_year_month": "2020-03", "initial_interests": []},
+    )
+    child_id = r.json()["id"]
+
+    r = client.post("/auth/register", json={"email": "b2@example.com", "password": "x", "display_name": "B"})
+    token_b = r.json()["access_token"]
+
+    r = client.post(
+        f"/parent/children/{child_id}/companion/search",
+        headers={"Authorization": f"Bearer {token_b}"},
+        json={"query": "trains"},
+    )
+    assert r.status_code == 403

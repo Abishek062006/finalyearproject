@@ -30,9 +30,26 @@ class Child(Base, UUIDPKMixin, TimestampMixin):
     research_hash: Mapped[str] = mapped_column(String(64), unique=True, default=new_uuid)
     created_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"))
 
+    # A parent-chosen companion (docs/PLAN.md UX-overhaul Phase C): a real,
+    # licensed photo the parent picked for whatever their child is actually
+    # into, shown as the guide character across activities — independent of
+    # the 4 built-in themes, which stay fixed so the existing randomized
+    # theme-preference experiment (docs/ARCHITECTURE.md) is never touched by
+    # this. Nullable: most of this prototype's test children have none.
+    companion_name: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    companion_image_path: Mapped[str | None] = mapped_column(String(200), nullable=True)  # served via /media
+    companion_source_title: Mapped[str | None] = mapped_column(String(200), nullable=True)  # provenance, e.g. Commons file title
+
     guardianships: Mapped[list["Guardianship"]] = relationship(back_populates="child")
     educator_links: Mapped[list["EducatorLink"]] = relationship(back_populates="child")
     consents: Mapped[list["Consent"]] = relationship(back_populates="child")
+
+    @property
+    def companion_image_url(self) -> str | None:
+        """The served URL for `companion_image_path` — computed rather than
+        stored, so ChildOut (pydantic from_attributes) can read it directly
+        without every caller re-deriving the /media prefix."""
+        return f"/media/{self.companion_image_path}" if self.companion_image_path else None
 
 
 class Guardianship(Base, UUIDPKMixin, TimestampMixin):

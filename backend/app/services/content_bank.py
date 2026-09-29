@@ -11,7 +11,14 @@ from pathlib import Path
 # backend/app/services/content_bank.py -> parents[3] is the repo root
 BANK_PATH = Path(__file__).resolve().parents[3] / "content" / "bank" / "theme_content.json"
 
-FALLBACK = {"guide_name": "Friend", "counting_prompt": "How many?", "encouragement": ["Great job!"]}
+FALLBACK = {
+    "guide_name": "Friend",
+    "counting_prompt": "How many?",
+    "identify_prompt_template": "Find the letter {label}!",
+    "match_prompt": "Match them all!",
+    "sequence_prompt": "Put them in order!",
+    "encouragement": ["Great job!"],
+}
 
 
 @lru_cache(maxsize=1)

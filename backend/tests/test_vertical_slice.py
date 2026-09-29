@@ -9,10 +9,17 @@ from app.engine.decision_engine import DecisionEngine
 from app.engine.experiment_manager import ArmChoice
 from app.models.experiment import Assignment, Outcome
 from app.models.profile_state import MasteryState
-from app.services import session_service
+from app.services import educator_service, session_service
 
 
 def test_full_loop_creates_a_clean_log(seeded_db, child_id):
+    # Pinned to the counting topic — this test asserts counting-specific
+    # content; which topic is otherwise chosen is real routing behaviour
+    # covered elsewhere now that a second topic exists (docs/PLAN.md
+    # content-breadth follow-up). An active assign_topic override also
+    # short-circuits SessionPlanner's lowest-mastery scan across ALL
+    # topics, so it doesn't lazily create a mastery row for the other one.
+    educator_service.assign_topic(seeded_db, child_id, "num_1_5", user_id="test-educator")
     session = session_service.start_session(seeded_db, child_id)
     activity = session_service.next_activity(seeded_db, session.id)
 

@@ -90,6 +90,26 @@ def encouragement_templates(guide_name: str) -> list[str]:
     ]
 
 
+def identify_prompt_template(guide_name: str) -> str:
+    """A template, not a finished string — {label} is filled in per item at
+    request time (e.g. "Find the letter B!"), so it's validated here against
+    a filled EXAMPLE rather than the raw template (which contains `{}` and
+    would otherwise fail validate_text's character check)."""
+    return f"{guide_name} says, find the letter {{label}}!"
+
+
+def match_prompt_template(guide_name: str) -> str:
+    """Matching (docs/PLAN.md Phase B) is a whole-board activity — one
+    fixed prompt for the whole board, no per-item placeholder."""
+    return f"Help {guide_name} match them all!"
+
+
+def sequence_prompt_template(guide_name: str) -> str:
+    """Sequencing (docs/PLAN.md Phase B) is also whole-board — same reasoning
+    as match_prompt_template."""
+    return f"Put them in order for {guide_name}!"
+
+
 def generate_theme(theme: dict) -> dict:
     ollama_prompt = (
         f"Write ONE short question (max {MAX_WORDS} words) asking a 4-8 year old "
@@ -112,9 +132,22 @@ def generate_theme(theme: dict) -> dict:
     for line in encouragement:
         assert not validate_text(line), f"template encouragement failed its own validation: {line}"
 
+    identify_template = identify_prompt_template(theme["guide_name"])
+    example = identify_template.format(label="B")
+    assert not validate_text(example), f"identify prompt template failed validation (filled example: {example!r})"
+
+    match_prompt = match_prompt_template(theme["guide_name"])
+    assert not validate_text(match_prompt), f"match prompt template failed validation: {match_prompt!r}"
+
+    sequence_prompt = sequence_prompt_template(theme["guide_name"])
+    assert not validate_text(sequence_prompt), f"sequence prompt template failed validation: {sequence_prompt!r}"
+
     return {
         "guide_name": theme["guide_name"],
         "counting_prompt": counting_prompt,
+        "identify_prompt_template": identify_template,
+        "match_prompt": match_prompt,
+        "sequence_prompt": sequence_prompt,
         "encouragement": encouragement,
         "source": source,
         "review_status": status,

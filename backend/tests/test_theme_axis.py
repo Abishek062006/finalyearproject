@@ -8,7 +8,7 @@ from app.engine.decision_engine import DecisionEngine
 from app.engine.experiment_manager import ArmChoice
 from app.models.curriculum import Item, Theme
 from app.models.experiment import Assignment, Axis, Outcome
-from app.services import session_service, content_bank
+from app.services import content_bank, educator_service, session_service
 
 
 def test_theme_is_actually_randomized_not_a_static_default(seeded_db, child_id):
@@ -35,6 +35,10 @@ def test_the_item_sets_items_actually_belong_to_the_chosen_theme(seeded_db, chil
 
 
 def test_prompt_text_comes_from_the_content_bank_and_matches_the_theme(seeded_db, child_id):
+    # Pinned to the counting topic specifically — this test is about
+    # counting_prompt content, not the (now real, docs/PLAN.md content-
+    # breadth follow-up) choice between multiple topics/activity kinds.
+    educator_service.assign_topic(seeded_db, child_id, "num_1_5", user_id="test-educator")
     session = session_service.start_session(seeded_db, child_id)
     activity = session_service.next_activity(seeded_db, session.id)
 

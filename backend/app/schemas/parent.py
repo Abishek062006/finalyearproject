@@ -17,8 +17,31 @@ class ChildOut(BaseModel):
     id: str
     nickname: str
     birth_year_month: str
+    companion_name: str | None = None
+    companion_image_url: str | None = None
 
     model_config = {"from_attributes": True}
+
+
+class CompanionCandidate(BaseModel):
+    image_url: str  # a real, live URL (Wikimedia) — not yet downloaded/stored
+    source_title: str
+    license: str
+
+
+class CompanionSearchRequest(BaseModel):
+    query: str  # free text the parent typed, e.g. "trains", "unicorns"
+
+
+class CompanionConfirmRequest(BaseModel):
+    query: str
+    image_url: str  # must be one of the candidate URLs just returned by /search
+    source_title: str
+
+
+class CompanionOut(BaseModel):
+    companion_name: str
+    companion_image_url: str
 
 
 class DomainProgress(BaseModel):

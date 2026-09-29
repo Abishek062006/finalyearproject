@@ -28,13 +28,26 @@ from app.engine.learner_model import LearnerModel
 from app.engine.retention_model import RetentionModel
 from app.engine.safety import DistressMonitor, TherapistLocks
 from app.engine.session_planner import SessionPlanner
-from app.models.curriculum import ActivityTemplate, Item, ItemSet, Theme
+from app.models.curriculum import ActivityTemplate, Guide, Item, ItemSet, Theme
 from app.models.experiment import Axis
+from app.models.identity import Child
 from app.services import content_bank
 
 DEFAULT_THEME_CODE = "dino"  # fallback only — the real choice comes from the theme axis (docs/PLAN.md Phase 7)
 THEME_AXIS_CODE = "theme"
 INTERVENTION_AXIS_CODE = "intervention"  # docs/PLAN.md Phase 6 — deliberately NOT in ExperimentManager.ACTIVE_AXIS_CODES
+
+# Which content_bank field each activity_kind's prompt_text comes from
+# (docs/PLAN.md's content-breadth follow-up). "letter_identify" is the only
+# one with a "{label}" placeholder the frontend fills in per-item — matching
+# and sequencing are whole-board activities, so their prompts stay fixed for
+# the whole activity, like "counting".
+PROMPT_FIELD_BY_ACTIVITY_KIND = {
+    "counting": "counting_prompt",
+    "letter_identify": "identify_prompt_template",
+    "matching": "match_prompt",
+    "sequencing": "sequence_prompt",
+}
 
 
 @dataclass
@@ -47,8 +60,11 @@ class ActivitySpec:
     modality_arm: ArmChoice | None
     theme_arm: ArmChoice | None
     theme_code: str
-    prompt_text: str
+    activity_kind: str  # "counting" | "letter_identify" | ... — which content shape `items` uses
+    prompt_text: str  # may contain a "{label}" placeholder the frontend fills in per-item (e.g. letter_identify)
     encouragement: list[str]
+    guide_name: str  # the theme's built-in guide, UNLESS the child has a parent-chosen companion (docs/PLAN.md UX-overhaul Phase C)
+    companion_image_url: str | None  # set only when the child has a companion — the frontend falls back to the theme's own bundled image otherwise
     item_set_id: str | None
     items: list[dict]
     probe_ids: list[str]  # ScheduledProbe rows this activity fulfills, if any (docs/PLAN.md Phase 5)
@@ -139,6 +155,11 @@ class DecisionEngine:
             return DEFAULT_THEME_CODE
         return next(a for a in arms if a.id == verdict.arm_id).code
 
+    def _guide_name_for_theme_code(self, theme_code: str) -> str:
+        theme = self.db.query(Theme).filter_by(code=theme_code).one_or_none()
+        guide = self.db.query(Guide).filter_by(theme_id=theme.id).one_or_none() if theme else None
+        return guide.name if guide else "Friend"
+
     def decide(self, child_id: str, session_id: str) -> ActivitySpec:
         # Local import: intervention_model imports engagement_model, and
         # keeping this here (rather than at module load) avoids any
@@ -147,6 +168,7 @@ class DecisionEngine:
 
         topic_choice = self.planner.next_topic(child_id)
         mastery = self.learner_model.get_mastery(child_id, topic_choice.topic_id)
+        child = self.db.query(Child).filter_by(id=child_id).one()
 
         engagement = self.engagement_model.estimate(child_id, session_id)
         # Real signal at last (docs/PLAN.md Phase 6) — Phase 1 through 5 used
@@ -170,6 +192,12 @@ class DecisionEngine:
                 posterior_snapshot=posterior_snapshot, distress_level=distress_level,
             )
             intervention_theme_code = self._current_best_theme_code(child_id)
+            intervention_builtin_guide_name = self._guide_name_for_theme_code(intervention_theme_code)
+            intervention_encouragement = content_bank.get_theme_content(intervention_theme_code)["encouragement"]
+            if child.companion_name:
+                intervention_encouragement = [
+                    line.replace(intervention_builtin_guide_name, child.companion_name) for line in intervention_encouragement
+                ]
             return ActivitySpec(
                 topic_id=topic_choice.topic_id,
                 topic_code=topic_choice.topic_code,
@@ -179,8 +207,11 @@ class DecisionEngine:
                 modality_arm=None,
                 theme_arm=None,
                 theme_code=intervention_theme_code,
+                activity_kind="intervention",
                 prompt_text=content_bank.get_theme_content(intervention_theme_code)["counting_prompt"],
-                encouragement=content_bank.get_theme_content(intervention_theme_code)["encouragement"],
+                encouragement=intervention_encouragement,
+                guide_name=child.companion_name or intervention_builtin_guide_name,
+                companion_image_url=child.companion_image_url,
                 item_set_id=None,
                 items=[],
                 probe_ids=[],
@@ -261,6 +292,28 @@ class DecisionEngine:
         render_theme_code = render_theme.code if render_theme else DEFAULT_THEME_CODE
         content = content_bank.get_theme_content(render_theme_code)
 
+        # docs/PLAN.md content-breadth follow-up: which CONTENT SHAPE this
+        # topic's items use — "counting" (answer.count, a number) vs
+        # "letter_identify" (answer.label, a string), etc. Both modality
+        # variants of a topic share the same activity_kind (it describes the
+        # content, not the response mechanism), so it doesn't matter which
+        # template row `.first()` happened to return.
+        activity_kind = (template.config.get("activity_kind") if template else None) or "counting"
+        prompt_field = PROMPT_FIELD_BY_ACTIVITY_KIND.get(activity_kind, "counting_prompt")
+
+        prompt_text = content.get(prompt_field) or content["counting_prompt"]
+        encouragement = content["encouragement"]
+        builtin_guide_name = self._guide_name_for_theme_code(render_theme_code)
+        if child.companion_name:
+            # The pre-baked content bank text literally names the theme's own
+            # guide ("Turbo says, find the letter B!") — swap it for the
+            # companion's name too, or the avatar (now the companion's photo)
+            # and the words attributed to it would name two different
+            # characters, a literal-language mismatch that matters a lot for
+            # this app's audience (README §1/§22).
+            prompt_text = prompt_text.replace(builtin_guide_name, child.companion_name)
+            encouragement = [line.replace(builtin_guide_name, child.companion_name) for line in encouragement]
+
         return ActivitySpec(
             topic_id=topic_choice.topic_id,
             topic_code=topic_choice.topic_code,
@@ -270,8 +323,15 @@ class DecisionEngine:
             modality_arm=arm_choices.get("modality"),
             theme_arm=theme_arm,
             theme_code=render_theme_code,
-            prompt_text=content["counting_prompt"],
-            encouragement=content["encouragement"],
+            activity_kind=activity_kind,
+            prompt_text=prompt_text,
+            encouragement=encouragement,
+            # The companion only ever replaces the GUIDE character (decorative,
+            # not content-bearing) — never the theme used for counting/matching
+            # visuals, which must stay accurate to what prompt_text says (a
+            # prompt about "race cars" must show race cars, not a teddy bear).
+            guide_name=child.companion_name or builtin_guide_name,
+            companion_image_url=child.companion_image_url,
             item_set_id=item_set.id if item_set else None,
             items=items,
             probe_ids=[p.id for p in due_probes],

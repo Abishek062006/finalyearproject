@@ -32,5 +32,8 @@ def test_every_seeded_theme_generates_bank_content_that_passes_validation():
         entry = generate_theme(theme)
         assert entry["review_status"] == "approved"
         assert validate_text(entry["counting_prompt"]) == []
+        assert validate_text(entry["identify_prompt_template"].format(label="B")) == []
+        assert validate_text(entry["match_prompt"]) == []
+        assert validate_text(entry["sequence_prompt"]) == []
         for line in entry["encouragement"]:
             assert validate_text(line) == []

@@ -10,7 +10,7 @@ from app.engine.retention_model import RetentionModel
 from app.models.experiment import Outcome
 from app.models.profile_state import RetentionState
 from app.models.runtime import ScheduledProbe
-from app.services import session_service
+from app.services import educator_service, session_service
 
 
 def test_retention_decays_over_time_after_a_correct_answer(seeded_db, child_id):
@@ -92,6 +92,13 @@ def test_fresh_practice_schedules_3_and_7_day_probes_per_assignment(seeded_db, c
 
 
 def test_practicing_the_same_topic_again_does_not_spam_duplicate_probes(seeded_db, child_id):
+    # Pin to one topic — the test is specifically about re-practicing the
+    # SAME topic, which now needs to be explicit since a second topic
+    # exists and would otherwise legitimately get picked on round 2 (its
+    # mastery starts lower once round 1 raises the first topic's mastery
+    # above it — real multi-topic routing, docs/PLAN.md content-breadth
+    # follow-up, not a bug).
+    educator_service.assign_topic(seeded_db, child_id, "num_1_5", user_id="test-educator")
     session = session_service.start_session(seeded_db, child_id)
     for _ in range(2):
         activity = session_service.next_activity(seeded_db, session.id)

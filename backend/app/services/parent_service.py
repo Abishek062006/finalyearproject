@@ -279,6 +279,11 @@ def withdraw_and_delete_child(db: DBSession, child_id: str) -> None:
     from app.models.runtime import ActivityInstance, ActivityInstanceAssignment, Interaction, InterventionEvent, ScheduledProbe
     from app.models.runtime import Session as SessionModel
     from app.models.telemetry import CrashReport
+    from app.services import companion_service
+
+    child = db.query(Child).filter_by(id=child_id).one_or_none()
+    if child is not None:
+        companion_service.delete_companion_file(child)  # stored media isn't a DB row — delete it explicitly
 
     session_ids = [row.id for row in db.query(SessionModel.id).filter_by(child_id=child_id).all()]
     activity_ids = (

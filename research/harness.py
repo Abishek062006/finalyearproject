@@ -15,7 +15,7 @@ from app.engine.decision_engine import DecisionEngine
 from app.engine.learner_model import LearnerModel
 from app.engine.retention_model import RetentionModel
 from app.models.runtime import ScheduledProbe
-from app.services import session_service
+from app.services import educator_service, session_service
 
 ACTIVITIES_PER_SESSION = 3  # a short daily session, matching README's ~10-15 minute framing
 ITEMS_PER_ACTIVITY = 5  # matches the seeded matched item sets (docs/PLAN.md Phase 7)
@@ -50,6 +50,15 @@ def run_aura_condition(
     db = build_db()
     child_id = register_child(db, nickname=f"child{child.child_index}")
     topic = get_topic_id(db)
+    # Pin the real DecisionEngine to the ORIGINAL evaluation topic explicitly
+    # — the curriculum now has a second topic (docs/PLAN.md content-breadth
+    # follow-up), and SessionPlanner.next_topic would otherwise be free to
+    # route a simulated child to it too, silently changing what Phase 8's
+    # already-published studies (research/results/) actually measured.
+    # SimulatedChild's own answering model has no notion of "letters" at
+    # all, so mixing topics wouldn't just add noise, it would misattribute
+    # every metric that assumes `topic` is the only thing being taught.
+    educator_service.assign_topic(db, child_id, topic_code="num_1_5", user_id="research-harness")
     learner = LearnerModel(db)
     log = RunLog(condition=condition_name, child_index=child.child_index)
 

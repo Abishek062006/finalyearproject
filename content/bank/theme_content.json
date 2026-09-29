@@ -3,6 +3,9 @@
     "dino": {
       "guide_name": "Rex",
       "counting_prompt": "How many dinosaur friends?",
+      "identify_prompt_template": "Rex says, find the letter {label}!",
+      "match_prompt": "Help Rex match them all!",
+      "sequence_prompt": "Put them in order for Rex!",
       "encouragement": [
         "Great job! Rex is doing a happy dance!",
         "Rex says well done!",
@@ -14,6 +17,9 @@
     "space": {
       "guide_name": "Astro",
       "counting_prompt": "How many rockets?",
+      "identify_prompt_template": "Astro says, find the letter {label}!",
+      "match_prompt": "Help Astro match them all!",
+      "sequence_prompt": "Put them in order for Astro!",
       "encouragement": [
         "Great job! Astro is doing a happy dance!",
         "Astro says well done!",
@@ -25,6 +31,9 @@
     "ocean": {
       "guide_name": "Splash",
       "counting_prompt": "How many fish friends?",
+      "identify_prompt_template": "Splash says, find the letter {label}!",
+      "match_prompt": "Help Splash match them all!",
+      "sequence_prompt": "Put them in order for Splash!",
       "encouragement": [
         "Great job! Splash is doing a happy dance!",
         "Splash says well done!",
@@ -36,6 +45,9 @@
     "cars": {
       "guide_name": "Turbo",
       "counting_prompt": "How many race cars?",
+      "identify_prompt_template": "Turbo says, find the letter {label}!",
+      "match_prompt": "Help Turbo match them all!",
+      "sequence_prompt": "Put them in order for Turbo!",
       "encouragement": [
         "Great job! Turbo is doing a happy dance!",
         "Turbo says well done!",

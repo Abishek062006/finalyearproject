@@ -9,6 +9,10 @@ from app.models.identity import User
 from app.schemas.parent import (
     ChildOut,
     ChildSummaryOut,
+    CompanionCandidate,
+    CompanionConfirmRequest,
+    CompanionOut,
+    CompanionSearchRequest,
     ConsentOut,
     ConsentUpdateRequest,
     CreateChildRequest,
@@ -17,7 +21,7 @@ from app.schemas.parent import (
     RecommendationOut,
     RecommendationResponseRequest,
 )
-from app.services import export_service, parent_service
+from app.services import companion_service, export_service, parent_service
 
 router = APIRouter(prefix="/parent", tags=["parent"])
 
@@ -91,6 +95,30 @@ def export_child_data(child_id: str, user: User = Depends(get_current_user), db:
     who their child is), gated only by guardianship."""
     require_guardian_of(child_id, user, db)
     return export_service.export_for_parent(db, child_id)
+
+
+@router.post("/children/{child_id}/companion/search", response_model=list[CompanionCandidate])
+def search_companion(
+    child_id: str, req: CompanionSearchRequest, user: User = Depends(get_current_user), db: DBSession = Depends(get_db)
+):
+    require_guardian_of(child_id, user, db)
+    try:
+        results = companion_service.search_companion_images(req.query)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+    return [CompanionCandidate(**c) for c in results]
+
+
+@router.post("/children/{child_id}/companion/confirm", response_model=CompanionOut)
+def confirm_companion(
+    child_id: str, req: CompanionConfirmRequest, user: User = Depends(get_current_user), db: DBSession = Depends(get_db)
+):
+    require_guardian_of(child_id, user, db)
+    try:
+        child = companion_service.set_child_companion(db, child_id, req.query, req.image_url, req.source_title)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+    return CompanionOut(companion_name=child.companion_name, companion_image_url=child.companion_image_url)
 
 
 @router.delete("/children/{child_id}", response_model=dict)
