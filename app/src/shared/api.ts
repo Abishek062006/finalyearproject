@@ -33,13 +33,45 @@ function resolveDevHost(): string {
 const DEV_HOST = resolveDevHost();
 export const API_BASE = `http://${DEV_HOST}:8000`;
 
+export type CommunicationLevel = "sentences" | "words" | "gestures" | "non_speaking";
+export type SensoryFlag = "sounds" | "lights" | "motion" | "timers";
+
+export interface ChildInterest {
+  id: string;
+  label: string;
+  image_url: string;
+  is_favourite: boolean;
+}
+
 export interface Child {
   id: string;
   nickname: string;
   birth_year_month: string;
   companion_name: string | null;
   companion_image_url: string | null;
+  communication_level: CommunicationLevel | null;
+  sensory: SensoryFlag[];
+  goals: string[]; // curriculum Domain codes
+  interests: ChildInterest[];
 }
+
+export interface OnboardInterest {
+  label: string;
+  image_url: string;
+  source_title: string;
+  favourite: boolean;
+}
+
+export interface OnboardChildRequest {
+  nickname: string;
+  birth_year_month: string;
+  communication_level: CommunicationLevel | null;
+  sensory: SensoryFlag[];
+  goals: string[];
+  interests: OnboardInterest[];
+}
+
+export type ChildProfilePatch = Partial<Pick<Child, "nickname" | "birth_year_month" | "communication_level" | "sensory" | "goals">>;
 
 export interface Session {
   id: string;
@@ -225,6 +257,7 @@ export interface LockState {
 
 export interface CompanionCandidate {
   image_url: string;
+  thumb_url: string | null; // small version for display; image_url is what the server downloads
   source_title: string;
   license: string;
 }
@@ -255,6 +288,26 @@ export const api = {
     }),
 
   listChildren: () => request<Child[]>("/parent/children"),
+
+  getChild: (childId: string) => request<Child>(`/parent/children/${childId}`),
+
+  searchInterests: (query: string) =>
+    request<CompanionCandidate[]>("/parent/interests/search", { method: "POST", body: JSON.stringify({ query }) }),
+
+  onboardChild: (payload: OnboardChildRequest) =>
+    request<Child>("/parent/children/onboard", { method: "POST", body: JSON.stringify(payload) }),
+
+  updateChild: (childId: string, patch: ChildProfilePatch) =>
+    request<Child>(`/parent/children/${childId}`, { method: "PATCH", body: JSON.stringify(patch) }),
+
+  addInterest: (childId: string, interest: OnboardInterest) =>
+    request<Child>(`/parent/children/${childId}/interests`, { method: "POST", body: JSON.stringify(interest) }),
+
+  favouriteInterest: (childId: string, interestId: string) =>
+    request<Child>(`/parent/children/${childId}/interests/${interestId}/favourite`, { method: "POST" }),
+
+  removeInterest: (childId: string, interestId: string) =>
+    request<Child>(`/parent/children/${childId}/interests/${interestId}`, { method: "DELETE" }),
 
   childSummary: (childId: string) => request<ChildSummary>(`/parent/children/${childId}/summary`),
 

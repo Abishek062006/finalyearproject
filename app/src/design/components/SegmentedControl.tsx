@@ -52,7 +52,7 @@ export function SegmentedControl<T extends string>({
           <Pressable
             key={o.value}
             accessibilityRole="tab"
-            accessibilityState={{ selected }}
+            aria-selected={selected}
             onPress={() => {
               if (!selected) {
                 haptic("select");

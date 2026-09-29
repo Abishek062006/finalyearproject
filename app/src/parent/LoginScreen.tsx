@@ -1,20 +1,22 @@
 import React, { useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import Animated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button, SegmentedControl, spacing, Text, TextField, useTheme } from "../design";
 import { api } from "../shared/api";
 import { authStore } from "../shared/authStore";
 import { useAuth } from "../shared/AuthProvider";
+import { onboardingFlag } from "../shared/onboardingFlag";
 
 type Mode = "login" | "register";
 type Role = "parent" | "educator";
 
-export function LoginScreen() {
+export function LoginScreen({ initialMode = "login", onBack }: { initialMode?: Mode; onBack?: () => void }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const { refresh } = useAuth();
-  const [mode, setMode] = useState<Mode>("login");
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [role, setRole] = useState<Role>("parent");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -33,6 +35,8 @@ export function LoginScreen() {
           ? await api.login(email.trim(), password)
           : await api.register(email.trim(), password, displayName.trim(), role);
       authStore.setToken(res.access_token);
+      // A brand-new parent goes straight into setting up their child.
+      if (mode === "register" && res.user.role === "parent") onboardingFlag.set();
       await refresh(); // the navigator switches to the right space on its own
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -49,6 +53,11 @@ export function LoginScreen() {
         contentContainerStyle={[styles.container, { paddingTop: insets.top + spacing.xxl, paddingBottom: insets.bottom + spacing.xl }]}
       >
         <View style={styles.column}>
+          {onBack && (
+            <Pressable accessibilityRole="button" accessibilityLabel="Back" hitSlop={12} onPress={onBack} style={styles.back}>
+              <Ionicons name="chevron-back" size={28} color={colors.tint} />
+            </Pressable>
+          )}
           <View style={[styles.mark, { backgroundColor: colors.tint }]}>
             <Text variant="title1" tone="onTint">
               A
@@ -134,6 +143,7 @@ export function LoginScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  back: { position: "absolute", top: -(spacing.xxl - spacing.xs), left: -spacing.xs, zIndex: 2 }, // sits in the top padding, above the logo
   container: { flexGrow: 1, paddingHorizontal: spacing.lg },
   column: { width: "100%", maxWidth: 420, alignSelf: "center" },
   mark: {

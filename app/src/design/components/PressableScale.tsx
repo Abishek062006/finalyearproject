@@ -30,6 +30,7 @@ export function PressableScale({
   onPressOut,
   disabled,
   accessibilityRole = "button",
+  accessibilityState,
   ...rest
 }: PressableScaleProps) {
   const { space } = useTheme();
@@ -43,7 +44,11 @@ export function PressableScale({
       {...rest}
       disabled={disabled}
       accessibilityRole={accessibilityRole}
-      accessibilityState={{ disabled: !!disabled }}
+      // aria-* rather than accessibilityState: react-native-web ignores the
+      // accessibilityState object entirely, and native RN supports aria-* too.
+      aria-checked={accessibilityState?.checked}
+      aria-selected={accessibilityState?.selected}
+      aria-disabled={!!disabled}
       onPressIn={(e) => {
         scale.value = withSpring(target, springs.press);
         onPressIn?.(e);

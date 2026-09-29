@@ -41,7 +41,7 @@ export async function initSounds(): Promise<void> {
 }
 
 export function playSound(event: SoundEvent): void {
-  if (!settingsStore.get().soundEnabled) return;
+  if (!settingsStore.get().soundEnabled || settingsStore.getSession().muteSounds) return;
   const player = players[event];
   if (!player) return;
   try {

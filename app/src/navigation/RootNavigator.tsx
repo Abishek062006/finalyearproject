@@ -19,18 +19,28 @@ import { SpaceProvider, useTheme } from "../design";
 import { paletteFor } from "../design/tokens";
 import { EducatorChildListScreen } from "../educator/EducatorChildListScreen";
 import { EducatorDashboardScreen } from "../educator/EducatorDashboardScreen";
-import { ChildListScreen } from "../parent/ChildListScreen";
+import { OnboardingScreen } from "../onboarding/OnboardingScreen";
+import { ChildProfileScreen, ProfileField } from "../parent/ChildProfileScreen";
 import { ConsentScreen } from "../parent/ConsentScreen";
-import { CreateChildScreen } from "../parent/CreateChildScreen";
 import { DashboardScreen } from "../parent/DashboardScreen";
+import { EditProfileScreen } from "../parent/EditProfileScreen";
 import { LoginScreen } from "../parent/LoginScreen";
+import { TodayScreen } from "../parent/TodayScreen";
+import { WelcomeScreen } from "../parent/WelcomeScreen";
+import { api } from "../shared/api";
 import { useAuth } from "../shared/AuthProvider";
+import { onboardingFlag } from "../shared/onboardingFlag";
+import { selectedChild } from "../shared/selectedChild";
 import { SettingsScreen } from "../shared/SettingsScreen";
+import { settingsStore } from "../design";
 
 export type RootStackParamList = {
-  Login: undefined;
+  Welcome: undefined;
+  Login: { mode: "login" | "register" };
   ParentHome: undefined;
-  CreateChild: undefined;
+  Onboarding: undefined;
+  ChildProfile: { childId: string };
+  EditProfile: { childId: string; field: ProfileField };
   ChildProgress: { childId: string };
   Consent: { childId: string };
   Settings: undefined;
@@ -45,19 +55,65 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 // ---- Route adapters: map navigation onto each screen's plain callback props ----
 
-function ParentHomeRoute({ navigation }: Props<"ParentHome">) {
+function WelcomeRoute({ navigation }: Props<"Welcome">) {
   return (
-    <ChildListScreen
-      onAddChild={() => navigation.navigate("CreateChild")}
-      onOpenDashboard={(childId) => navigation.navigate("ChildProgress", { childId })}
+    <WelcomeScreen
+      onGetStarted={() => navigation.navigate("Login", { mode: "register" })}
+      onSignIn={() => navigation.navigate("Login", { mode: "login" })}
+    />
+  );
+}
+
+function LoginRoute({ navigation, route }: Props<"Login">) {
+  // key: switching between "Get started" and "Sign in" remounts with the right mode.
+  return <LoginScreen key={route.params.mode} initialMode={route.params.mode} onBack={() => navigation.goBack()} />;
+}
+
+function ParentHomeRoute({ navigation }: Props<"ParentHome">) {
+  // Right after sign-up, go straight into setting up the child (like a device's setup assistant).
+  useEffect(() => {
+    if (onboardingFlag.consume()) navigation.navigate("Onboarding");
+  }, [navigation]);
+
+  return (
+    <TodayScreen
+      onSetUpChild={() => navigation.navigate("Onboarding")}
       onPlay={(childId) => navigation.navigate("ChildSpace", { childId })}
+      onOpenProgress={(childId) => navigation.navigate("ChildProgress", { childId })}
+      onOpenProfile={(childId) => navigation.navigate("ChildProfile", { childId })}
+      onOpenConsent={(childId) => navigation.navigate("Consent", { childId })}
       onOpenSettings={() => navigation.navigate("Settings")}
     />
   );
 }
 
-function CreateChildRoute({ navigation }: Props<"CreateChild">) {
-  return <CreateChildScreen onCreated={() => navigation.goBack()} onCancel={() => navigation.goBack()} />;
+function OnboardingRoute({ navigation }: Props<"Onboarding">) {
+  return (
+    <OnboardingScreen
+      onFinish={(result) => {
+        if (!result) return navigation.goBack();
+        selectedChild.set(result.childId);
+        if (result.play) navigation.replace("ChildSpace", { childId: result.childId });
+        else navigation.goBack();
+      }}
+    />
+  );
+}
+
+function ChildProfileRoute({ navigation, route }: Props<"ChildProfile">) {
+  const { childId } = route.params;
+  return (
+    <ChildProfileScreen
+      childId={childId}
+      onBack={() => navigation.goBack()}
+      onEdit={(field) => navigation.navigate("EditProfile", { childId, field })}
+      onOpenConsent={() => navigation.navigate("Consent", { childId })}
+    />
+  );
+}
+
+function EditProfileRoute({ navigation, route }: Props<"EditProfile">) {
+  return <EditProfileScreen childId={route.params.childId} field={route.params.field} onDone={() => navigation.goBack()} />;
 }
 
 function ChildProgressRoute({ navigation, route }: Props<"ChildProgress">) {
@@ -86,6 +142,16 @@ function SettingsRoute({ navigation }: Props<"Settings">) {
 
 function ChildSpaceRoute({ navigation, route }: Props<"ChildSpace">) {
   const exitAllowed = useRef(false);
+
+  useEffect(() => {
+    // This child's own sensory profile (onboarding) quiets the child space
+    // on top of the device settings — and is lifted again when they leave.
+    api
+      .getChild(route.params.childId)
+      .then((child) => settingsStore.setSession({ muteSounds: child.sensory.includes("sounds"), reduceMotion: child.sensory.includes("motion") }))
+      .catch(() => {});
+    return () => settingsStore.setSession(null);
+  }, [route.params.childId]);
 
   useEffect(() => {
     // Android hardware back: swallowed entirely while in the child space.
@@ -168,7 +234,10 @@ export function RootNavigator() {
         screenLayout={({ children }) => <SpaceProvider space={space}>{children}</SpaceProvider>}
       >
         {status === "signedOut" ? (
-          <Stack.Screen name="Login" component={LoginScreen} options={{ animation: "fade" }} />
+          <>
+            <Stack.Screen name="Welcome" component={WelcomeRoute} options={{ animation: "fade" }} />
+            <Stack.Screen name="Login" component={LoginRoute} />
+          </>
         ) : user?.role === "educator" ? (
           <>
             <Stack.Screen name="EducatorHome" component={EducatorHomeRoute} options={{ animation: "fade" }} />
@@ -178,7 +247,13 @@ export function RootNavigator() {
         ) : (
           <>
             <Stack.Screen name="ParentHome" component={ParentHomeRoute} options={{ animation: "fade" }} />
-            <Stack.Screen name="CreateChild" component={CreateChildRoute} />
+            <Stack.Screen
+              name="Onboarding"
+              component={OnboardingRoute}
+              options={{ presentation: "fullScreenModal", animation: "slide_from_bottom", gestureEnabled: false }}
+            />
+            <Stack.Screen name="ChildProfile" component={ChildProfileRoute} />
+            <Stack.Screen name="EditProfile" component={EditProfileRoute} />
             <Stack.Screen name="ChildProgress" component={ChildProgressRoute} />
             <Stack.Screen name="Consent" component={ConsentRoute} />
             <Stack.Screen name="Settings" component={SettingsRoute} />

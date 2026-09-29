@@ -1,5 +1,8 @@
 export { Button } from "./components/Button";
 export { Card } from "./components/Card";
+export { Chip } from "./components/Chip";
+export { OptionCard } from "./components/OptionCard";
+export { WheelPicker } from "./components/WheelPicker";
 export { ListRow, ListSection, ListSwitch } from "./components/List";
 export { ParentalGate } from "./components/ParentalGate";
 export { PressableScale } from "./components/PressableScale";
@@ -9,7 +12,7 @@ export { Text } from "./components/Text";
 export { TextField } from "./components/TextField";
 export { haptic } from "./haptics";
 export { springs, durations } from "./motion";
-export { settingsStore, useSettings } from "./settings";
+export { settingsStore, useSessionOverrides, useSettings } from "./settings";
 export { initSounds, playSound } from "./sound";
 export { SpaceProvider, useTheme } from "./theme";
 export * from "./tokens";
