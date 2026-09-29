@@ -19,11 +19,13 @@ function shuffled<T>(arr: T[]): T[] {
 function DragTile({
   value,
   dropZone,
+  measureDropZone,
   onDropped,
   disabled,
 }: {
   value: string | number;
   dropZone: React.MutableRefObject<LayoutRectangle | null>;
+  measureDropZone: () => void;
   onDropped: (value: string | number) => void;
   disabled: boolean;
 }) {
@@ -32,6 +34,10 @@ function DragTile({
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => !disabled,
+      // The screen may scroll (short phones) — re-measure where the zone is NOW,
+      // and never let the scroll view take over a drag that has started.
+      onPanResponderGrant: () => measureDropZone(),
+      onPanResponderTerminationRequest: () => false,
       onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], { useNativeDriver: false }),
       onPanResponderRelease: (_evt, gesture) => {
         const zone = dropZone.current;
@@ -94,7 +100,7 @@ export function DragDropAnswer({
       </View>
       <View style={styles.tileRow}>
         {options.map((value) => (
-          <DragTile key={value} value={value} dropZone={dropZone} onDropped={onChoose} disabled={disabled} />
+          <DragTile key={value} value={value} dropZone={dropZone} measureDropZone={measureDropZone} onDropped={onChoose} disabled={disabled} />
         ))}
       </View>
     </View>

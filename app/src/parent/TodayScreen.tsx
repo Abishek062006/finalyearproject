@@ -157,7 +157,7 @@ export function TodayScreen({
           <View style={{ flex: 1, marginLeft: spacing.md }}>
             <Text variant="title2">{child.nickname}</Text>
             <Text variant="subhead" tone="secondary">
-              {age} {age === 1 ? "year" : "years"} old{child.companion_name ? ` · learns with ${child.companion_name}` : ""}
+              {age} {age === 1 ? "year" : "years"} old{` · learns with ${child.buddy}`}
             </Text>
           </View>
         </View>

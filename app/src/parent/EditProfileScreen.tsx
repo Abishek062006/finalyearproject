@@ -9,9 +9,12 @@ import { InterestSearch } from "../onboarding/InterestSearch";
 import { AgeStep, CommunicationStep, GoalsStep, SensoryStep } from "../onboarding/steps";
 import { api, Child, ChildProfilePatch } from "../shared/api";
 import { ProfileField } from "./ChildProfileScreen";
+import { Buddy } from "../companion/Buddy";
+import { useBuddy } from "../companion/useBuddy";
 
 const TITLES: Record<ProfileField, string> = {
   basics: "Name and age",
+  buddy: "Learning friend",
   communication: "Communication",
   sensory: "Sensory needs",
   goals: "Learning goals",
@@ -37,6 +40,7 @@ export function EditProfileScreen({ childId, field, onDone }: { childId: string;
           communication_level: c.communication_level,
           sensory: c.sensory,
           goals: c.goals,
+          buddy_name: c.buddy,
         });
       })
       .catch((err) => setError(err instanceof Error ? err.message : String(err)));
@@ -49,7 +53,9 @@ export function EditProfileScreen({ childId, field, onDone }: { childId: string;
       const patch: ChildProfilePatch =
         field === "basics"
           ? { nickname: draft.nickname?.trim(), birth_year_month: draft.birth_year_month }
-          : field === "communication"
+          : field === "buddy"
+            ? { buddy_name: draft.buddy_name?.trim() ?? "" }
+            : field === "communication"
             ? { communication_level: draft.communication_level }
             : field === "sensory"
               ? { sensory: draft.sensory }
@@ -86,6 +92,7 @@ export function EditProfileScreen({ childId, field, onDone }: { childId: string;
           <AgeStep name={draft.nickname?.trim() ?? ""} value={draft.birth_year_month ?? child.birth_year_month} onChange={(v) => setDraft({ ...draft, birth_year_month: v })} />
         </>
       )}
+      {field === "buddy" && <BuddyNameEditor name={draft.buddy_name ?? ""} onChange={(v) => setDraft({ ...draft, buddy_name: v })} />}
       {field === "communication" && (
         <CommunicationStep value={draft.communication_level ?? null} onChange={(v) => setDraft({ ...draft, communication_level: v })} />
       )}
@@ -124,5 +131,30 @@ export function EditProfileScreen({ childId, field, onDone }: { childId: string;
         </View>
       )}
     </Screen>
+  );
+}
+
+/** Rename the learning friend — Pip says its new name back as you type it. */
+function BuddyNameEditor({ name, onChange }: { name: string; onChange: (v: string) => void }) {
+  const buddy = useBuddy();
+  const shown = name.trim() || "Pip";
+  return (
+    <View style={{ alignItems: "center" }}>
+      <Buddy buddy={buddy} size={150} />
+      <View style={{ alignSelf: "stretch", marginTop: spacing.lg }}>
+        <TextField
+          label="Name"
+          value={name}
+          onChangeText={onChange}
+          onBlur={() => buddy.say(`Hi! I'm ${shown}!`, { mood: "happy" })}
+          maxLength={20}
+          autoCapitalize="words"
+          placeholder="Pip"
+        />
+      </View>
+      <Text variant="footnote" tone="secondary" align="center">
+        One friend, every day — the same name in every activity. Leave it empty to go back to Pip.
+      </Text>
+    </View>
   );
 }

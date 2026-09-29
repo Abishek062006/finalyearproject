@@ -66,7 +66,7 @@ export function OnboardingScreen({ onFinish }: { onFinish: (result: { childId: s
     interests: { title: `What does ${displayName} love?`, subtitle: "Search for anything. Their favourite becomes their learning companion." },
     sensory: { title: `Does anything bother ${displayName}?`, subtitle: "We'll tune the app around it. You can change this any time." },
     goals: { title: `What should ${displayName} work on?`, subtitle: "Pick as many as you like." },
-    meet: { title: `Meet ${displayName}'s friend` },
+    meet: { title: `Meet ${child?.buddy ?? "Pip"}`, subtitle: `${displayName}'s learning friend` },
     handover: { title: `Hand the tablet to ${displayName}` },
   };
 
@@ -171,7 +171,9 @@ export function OnboardingScreen({ onFinish }: { onFinish: (result: { childId: s
             {step === "interests" && <InterestsStep name={name.trim()} value={interests} onChange={setInterests} />}
             {step === "sensory" && <SensoryStep value={sensory} onChange={setSensory} />}
             {step === "goals" && <GoalsStep value={goals} onChange={setGoals} />}
-            {step === "meet" && child && <MeetCompanionStep name={child.nickname} companionName={child.companion_name} companionImageUrl={child.companion_image_url} />}
+            {step === "meet" && child && (
+              <MeetCompanionStep name={child.nickname} buddyName={child.buddy} companionName={child.companion_name} companionImageUrl={child.companion_image_url} />
+            )}
             {step === "handover" && child && <HandoverStep child={child} />}
           </View>
         </Animated.View>

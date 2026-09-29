@@ -35,6 +35,8 @@ export function TapAnswer({
         <Pressable
           key={value}
           disabled={disabled}
+          accessibilityRole="button"
+          accessibilityLabel={`Answer ${value}`}
           onPress={() => onChoose(value)}
           style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
         >

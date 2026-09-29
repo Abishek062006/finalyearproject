@@ -12,10 +12,11 @@
  * that endpoint remains for backend testing/dev convenience only).
  */
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { haptic, ParentalGate, playSound, useSettings, useTheme } from "../design";
-import { GuideBubble } from "./GuideBubble";
+import { CompanionStage } from "../companion/CompanionStage";
+import { useBuddy } from "../companion/useBuddy";
 import { CountingScene } from "./CountingScene";
 import { IdentifyScene } from "./IdentifyScene";
 import { TapAnswer } from "./TapAnswer";
@@ -29,19 +30,43 @@ import { colors, spacing, THEME_ASSETS, ThemeCode, childFonts } from "../shared/
 
 type Phase = "loading" | "playing" | "feedback" | "error";
 
-export function ChildScreen({ childId, onExit }: { childId: string; onExit: () => void }) {
+/** Keeps content clear of the Grown-ups pill in the top corner. */
+const GATE_CLEARANCE = 56;
+
+/** On web, dragging a tile would otherwise highlight text across the screen. */
+const NO_TEXT_SELECTION = Platform.OS === "web" ? ({ userSelect: "none" } as object) : null;
+
+export function ChildScreen({
+  childId,
+  onExit,
+  childName,
+  reduceMotion = false,
+}: {
+  childId: string;
+  onExit: () => void;
+  childName?: string;
+  reduceMotion?: boolean;
+}) {
   const [phase, setPhase] = useState<Phase>("loading");
   const [errorMessage, setErrorMessage] = useState("");
   const [session, setSession] = useState<Session | null>(null);
   const [activity, setActivity] = useState<Activity | null>(null);
   const [itemIndex, setItemIndex] = useState(0);
-  const [lastCorrect, setLastCorrect] = useState<boolean | null>(null);
   const [roundsCompleted, setRoundsCompleted] = useState(0);
   const [boardResolved, setBoardResolved] = useState(0); // "matching"/"sequencing" only — how many of the whole-board items are answered so far
   const responseStartedAt = useRef<number>(Date.now());
   const { colors: childColors } = useTheme();
   const insets = useSafeAreaInsets();
   const { showDecisionOverlay } = useSettings();
+  const companionUri = activity?.spec.companion_image_url ? `${API_BASE}${activity.spec.companion_image_url}` : null;
+  const buddy = useBuddy({ reduceMotion });
+  const { width: windowWidth } = useWindowDimensions();
+  const buddySize = Math.round(Math.min(128, Math.max(88, windowWidth * 0.26)));
+  const [viewportHeight, setViewportHeight] = useState(0);
+  const [contentHeight, setContentHeight] = useState(0);
+  const contentOverflows = contentHeight > viewportHeight + 1;
+  // Resolves once Pip has said hello, so the first prompt never talks over the greeting.
+  const greeting = useRef<Promise<void>>(Promise.resolve());
 
   const bootstrap = useCallback(async () => {
     try {
@@ -53,6 +78,9 @@ export function ChildScreen({ childId, onExit }: { childId: string; onExit: () =
       setItemIndex(0);
       setBoardResolved(0);
       responseStartedAt.current = Date.now();
+      buddy.enter();
+      buddy.gesture("wave");
+      greeting.current = buddy.say(childName ? `Hi ${childName}! Let's play!` : "Hi! Let's play!", { mood: "happy" });
       setPhase("playing");
     } catch (err) {
       setErrorMessage(
@@ -61,11 +89,36 @@ export function ChildScreen({ childId, onExit }: { childId: string; onExit: () =
       );
       setPhase("error");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [childId]);
 
   useEffect(() => {
     bootstrap();
   }, [bootstrap]);
+
+  // Pip reads every question aloud (pre-readers can't read the prompt), then
+  // looks down at the answers and points to them.
+  const isBoard = activity?.spec.activity_kind === "matching" || activity?.spec.activity_kind === "sequencing";
+  const promptKey = activity && !activity.spec.is_intervention ? `${activity.id}:${isBoard ? "board" : itemIndex}` : null;
+  useEffect(() => {
+    if (phase !== "playing" || !promptKey || !activity) return;
+    let cancelled = false;
+    (async () => {
+      await greeting.current;
+      if (cancelled) return;
+      buddy.setMood("neutral");
+      buddy.lookAt(0, 0);
+      await buddy.say(currentPrompt(activity, itemIndex));
+      if (cancelled) return;
+      buddy.lookAt(0.35, 1);
+      buddy.gesture("point");
+      responseStartedAt.current = Date.now(); // response time starts once the question has been heard
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [promptKey, phase]);
 
   // Shared by the last item of a normal (counting/letter_identify) activity,
   // an intervention finishing, and a whole board (matching/sequencing)
@@ -92,6 +145,13 @@ export function ChildScreen({ childId, onExit }: { childId: string; onExit: () =
     if (!activity) return;
     setBoardResolved((n) => n + 1);
     giveAnswerFeedback(correct, "board");
+    if (correct) {
+      buddy.setMood("happy");
+      buddy.gesture("nod");
+    } else {
+      buddy.setMood("concerned");
+      setTimeout(() => buddy.setMood("encouraging"), 900);
+    }
     await api.submitAnswerReliably(activity.id, { item_id: itemId, correct, response_time_ms: responseTimeMs });
   }
 
@@ -99,6 +159,8 @@ export function ChildScreen({ childId, onExit }: { childId: string; onExit: () =
     haptic("success");
     playSound("celebrate");
     setRoundsCompleted((r) => r + 1);
+    buddy.gesture("celebrate");
+    await buddy.say(pickEncouragement(activity), { mood: "excited" });
     await goToNextActivity();
   }
 
@@ -110,27 +172,34 @@ export function ChildScreen({ childId, onExit }: { childId: string; onExit: () =
     const correct = value === answerValue;
     const responseTimeMs = Date.now() - responseStartedAt.current;
 
-    setLastCorrect(correct);
     setPhase("feedback");
     giveAnswerFeedback(correct, "single");
 
-    await api.submitAnswerReliably(activity.id, {
-      item_id: item.id,
-      correct,
-      response_time_ms: responseTimeMs,
-    });
+    // Pip reacts, and the next question waits until it has finished talking.
+    buddy.lookAt(0, 0);
+    let reaction: Promise<void>;
+    if (correct) {
+      buddy.gesture(itemIndex % 2 === 0 ? "celebrate" : "clap");
+      reaction = buddy.say(pickEncouragement(activity, itemIndex), { mood: "excited" });
+    } else {
+      buddy.setMood("concerned");
+      reaction = buddy.say("Almost! Let's try another one.", { mood: "encouraging" });
+    }
 
-    setTimeout(async () => {
-      const isLastItemInSet = itemIndex + 1 >= activity.spec.items.length;
-      if (!isLastItemInSet) {
-        setItemIndex((i) => i + 1);
-        responseStartedAt.current = Date.now();
-        setPhase("playing");
-        return;
-      }
-      setRoundsCompleted((r) => r + 1);
-      await goToNextActivity();
-    }, 1100);
+    await Promise.all([
+      api.submitAnswerReliably(activity.id, { item_id: item.id, correct, response_time_ms: responseTimeMs }),
+      reaction,
+      new Promise((r) => setTimeout(r, 900)),
+    ]);
+
+    const isLastItemInSet = itemIndex + 1 >= activity.spec.items.length;
+    if (!isLastItemInSet) {
+      setItemIndex((i) => i + 1);
+      setPhase("playing");
+      return;
+    }
+    setRoundsCompleted((r) => r + 1);
+    await goToNextActivity();
   }
 
   // Never punitive: a wrong answer is a soft tap and a quiet low tone, never a buzzer (README §31).
@@ -146,6 +215,7 @@ export function ChildScreen({ childId, onExit }: { childId: string; onExit: () =
 
   // Only reachable through the grown-ups gate (ParentalGate) — never a plain tap.
   async function finishForToday() {
+    buddy.stop();
     if (session) {
       try {
         await api.endSession(session.id);
@@ -208,7 +278,6 @@ export function ChildScreen({ childId, onExit }: { childId: string; onExit: () =
   const avatarImageSource = activity.spec.companion_image_url
     ? { uri: `${API_BASE}${activity.spec.companion_image_url}` }
     : THEME_ASSETS[theme].image;
-  const accentColor = THEME_ASSETS[theme].accent;
 
   if (activity.spec.is_intervention) {
     return (
@@ -232,13 +301,6 @@ export function ChildScreen({ childId, onExit }: { childId: string; onExit: () =
   // at a time via itemIndex — these two families don't share item shapes
   // (sequencing items have no "count"/"label" at all), so branch before
   // touching itemIndex-based derived values at all.
-  const encouragement = activity.spec.encouragement;
-  const guideText =
-    phase === "feedback"
-      ? lastCorrect
-        ? encouragement[itemIndex % encouragement.length] ?? "Great job!"
-        : "Almost! Let's try another one."
-      : "Let's play!";
 
   let sceneAndAnswer: React.ReactNode;
   if (activity.spec.activity_kind === "matching") {
@@ -310,14 +372,25 @@ export function ChildScreen({ childId, onExit }: { childId: string; onExit: () =
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: childColors.background, paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + spacing.lg }]}>
+    <View style={[styles.container, NO_TEXT_SELECTION, { backgroundColor: childColors.background }]}>
       <View style={[styles.gateSlot, { top: insets.top + spacing.sm }]}>
         <ParentalGate onUnlock={finishForToday} />
       </View>
 
-      <GuideBubble imageSource={avatarImageSource} accentColor={accentColor} text={guideText} />
-
-      {sceneAndAnswer}
+      {/* Centred when everything fits; scrolls only when it doesn't (short phones,
+          landscape). Scrolling stays OFF otherwise so it can never fight a drag. */}
+      <ScrollView
+        scrollEnabled={contentOverflows}
+        onLayout={(e) => setViewportHeight(e.nativeEvent.layout.height)}
+        onContentSizeChange={(_w, h) => setContentHeight(h)}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + GATE_CLEARANCE, paddingBottom: insets.bottom + spacing.lg }]}
+      >
+        <View style={styles.column}>
+          <CompanionStage buddy={buddy} holdingUri={companionUri} size={buddySize} />
+          {sceneAndAnswer}
+        </View>
+      </ScrollView>
 
       {/* Research/debug strip — the adaptive engine's decisions. Off unless a grown-up
           turns it on in Settings > Research & development (dev builds only). */}
@@ -340,7 +413,9 @@ export function ChildScreen({ childId, onExit }: { childId: string; onExit: () =
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingHorizontal: spacing.lg, justifyContent: "center" },
+  container: { flex: 1 },
+  content: { flexGrow: 1, justifyContent: "center", paddingHorizontal: spacing.lg },
+  column: { width: "100%", maxWidth: 760, alignSelf: "center" },
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.lg },
   gateSlot: { position: "absolute", right: spacing.md, zIndex: 10 },
   loadingText: { marginTop: spacing.md, fontSize: 18, color: colors.textSecondary },
@@ -350,3 +425,17 @@ const styles = StyleSheet.create({
   debugStrip: { position: "absolute", left: spacing.md, right: spacing.md },
   debugText: { fontSize: 11, color: colors.textSecondary, textAlign: "center", fontFamily: "monospace" },
 });
+
+/** The spoken form of the current question — letter prompts fill in their target letter. */
+function currentPrompt(activity: Activity, itemIndex: number): string {
+  const item = activity.spec.items[itemIndex];
+  if (activity.spec.activity_kind === "letter_identify" && item && "label" in item.answer) {
+    return activity.spec.prompt_text.replace("{label}", item.answer.label);
+  }
+  return activity.spec.prompt_text;
+}
+
+function pickEncouragement(activity: Activity | null, index = 0): string {
+  const lines = activity?.spec.encouragement ?? [];
+  return lines.length ? lines[index % lines.length] : "Great job!";
+}

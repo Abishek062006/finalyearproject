@@ -12,7 +12,8 @@
 import { DefaultTheme, NavigationContainer, Theme as NavTheme } from "@react-navigation/native";
 import { createNativeStackNavigator, NativeStackScreenProps } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { useReducedMotion } from "react-native-reanimated";
 import { ActivityIndicator, BackHandler, View } from "react-native";
 import { ChildScreen } from "../child/ChildScreen";
 import { SpaceProvider, useTheme } from "../design";
@@ -27,7 +28,7 @@ import { EditProfileScreen } from "../parent/EditProfileScreen";
 import { LoginScreen } from "../parent/LoginScreen";
 import { TodayScreen } from "../parent/TodayScreen";
 import { WelcomeScreen } from "../parent/WelcomeScreen";
-import { api } from "../shared/api";
+import { api, Child } from "../shared/api";
 import { useAuth } from "../shared/AuthProvider";
 import { onboardingFlag } from "../shared/onboardingFlag";
 import { selectedChild } from "../shared/selectedChild";
@@ -142,14 +143,19 @@ function SettingsRoute({ navigation }: Props<"Settings">) {
 
 function ChildSpaceRoute({ navigation, route }: Props<"ChildSpace">) {
   const exitAllowed = useRef(false);
+  const osReduceMotion = useReducedMotion();
+  const [child, setChild] = useState<Child | null | undefined>(undefined); // undefined = still loading
 
   useEffect(() => {
     // This child's own sensory profile (onboarding) quiets the child space
     // on top of the device settings — and is lifted again when they leave.
     api
       .getChild(route.params.childId)
-      .then((child) => settingsStore.setSession({ muteSounds: child.sensory.includes("sounds"), reduceMotion: child.sensory.includes("motion") }))
-      .catch(() => {});
+      .then((c) => {
+        settingsStore.setSession({ muteSounds: c.sensory.includes("sounds"), reduceMotion: c.sensory.includes("motion") });
+        setChild(c);
+      })
+      .catch(() => setChild(null)); // offline etc. — play on with defaults
     return () => settingsStore.setSession(null);
   }, [route.params.childId]);
 
@@ -166,9 +172,13 @@ function ChildSpaceRoute({ navigation, route }: Props<"ChildSpace">) {
     };
   }, [navigation]);
 
+  if (child === undefined) return <Splash />;
+
   return (
     <ChildScreen
       childId={route.params.childId}
+      childName={child?.nickname}
+      reduceMotion={osReduceMotion || !!child?.sensory.includes("motion")}
       onExit={() => {
         exitAllowed.current = true;
         navigation.goBack();

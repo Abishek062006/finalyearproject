@@ -12,7 +12,7 @@ import { api, API_BASE, Child, ChildInterest } from "../shared/api";
 import { pickChildPhoto, saveChildPhoto, useChildPhoto } from "../shared/childPhotos";
 import { ChildAvatar } from "./ChildAvatar";
 
-export type ProfileField = "basics" | "communication" | "sensory" | "goals" | "interests";
+export type ProfileField = "basics" | "buddy" | "communication" | "sensory" | "goals" | "interests";
 
 export function ChildProfileScreen({
   childId,
@@ -92,6 +92,7 @@ export function ChildProfileScreen({
 
       <ListSection header="About">
         <ListRow title="Name and age" value={`${child.nickname}, ${age}`} icon="person" iconColor="#0A84FF" accessory="chevron" onPress={() => onEdit("basics")} />
+        <ListRow title="Learning friend's name" value={child.buddy} icon="happy" iconColor="#5E5CE6" accessory="chevron" onPress={() => onEdit("buddy")} />
         <ListRow title="Communication" value={communicationLabel(child.communication_level)} icon="chatbubbles" iconColor="#30B0C7" accessory="chevron" onPress={() => onEdit("communication")} />
         <ListRow title="Sensory needs" value={sensoryLabel(child.sensory)} icon="ear" iconColor="#FF9F0A" accessory="chevron" onPress={() => onEdit("sensory")} />
         <ListRow title="Learning goals" value={goalsLabel(child.goals)} icon="flag" iconColor="#34C759" accessory="chevron" onPress={() => onEdit("goals")} />

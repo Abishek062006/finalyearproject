@@ -6,11 +6,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useMemo } from "react";
 import { Image, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming, ZoomIn } from "react-native-reanimated";
+import Animated, { ZoomIn } from "react-native-reanimated";
 import { haptic, OptionCard, PressableScale, radius, spacing, Text, useTheme, WheelPicker } from "../design";
 import { API_BASE, CommunicationLevel, SensoryFlag } from "../shared/api";
 import { pickChildPhoto } from "../shared/childPhotos";
-import { speak, stopSpeaking } from "../shared/speech";
+import { Buddy } from "../companion/Buddy";
+import { useBuddy } from "../companion/useBuddy";
 import { InterestSearch } from "./InterestSearch";
 import { COMMUNICATION_OPTIONS, GOAL_OPTIONS, SENSORY_OPTIONS, ageInYears } from "./options";
 
@@ -231,42 +232,46 @@ export function InterestsStep({ name, value, onChange }: { name: string; value: 
   );
 }
 
-// ---- Meet the companion ----
+// ---- Meet Pip ----
 
-export function MeetCompanionStep({ name, companionName, companionImageUrl }: { name: string; companionName: string | null; companionImageUrl: string | null }) {
+export function MeetCompanionStep({
+  name,
+  buddyName,
+  companionName,
+  companionImageUrl,
+}: {
+  name: string;
+  buddyName: string;
+  companionName: string | null;
+  companionImageUrl: string | null;
+}) {
   const { colors } = useTheme();
-  const breathe = useSharedValue(1);
+  const buddy = useBuddy();
   const greeting = companionName
-    ? `Hi ${name}! I love ${companionName.toLowerCase()} too. Let's learn together!`
-    : `Hi ${name}! I'm so happy to meet you. Let's learn together!`;
+    ? `Hi ${name}! I'm ${buddyName}. I love ${companionName.toLowerCase()} too! Let's learn together.`
+    : `Hi ${name}! I'm ${buddyName}. Let's learn together!`;
+
+  function greet() {
+    buddy.gesture("wave");
+    buddy.say(greeting, { mood: "happy" }).then(() => buddy.setMood("encouraging"));
+  }
 
   useEffect(() => {
-    breathe.value = withRepeat(withSequence(withTiming(1.04, { duration: 1600, easing: Easing.inOut(Easing.sin) }), withTiming(1, { duration: 1600, easing: Easing.inOut(Easing.sin) })), -1);
-    const t = setTimeout(() => speak(greeting), 500);
-    return () => {
-      clearTimeout(t);
-      stopSpeaking();
-    };
+    buddy.enter();
+    const t = setTimeout(greet, 700);
+    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const breatheStyle = useAnimatedStyle(() => ({ transform: [{ scale: breathe.value }] }));
-
   return (
     <View style={{ alignItems: "center" }}>
-      <Animated.View style={[styles.companion, { backgroundColor: colors.fill, shadowColor: colors.tint }, breatheStyle]}>
-        {companionImageUrl ? (
-          <Image source={{ uri: `${API_BASE}${companionImageUrl}` }} style={styles.companionImage} />
-        ) : (
-          <Ionicons name="sparkles" size={64} color={colors.tint} />
-        )}
-      </Animated.View>
-      <View style={[styles.bubble, { backgroundColor: colors.surface }]}>
+      <Buddy buddy={buddy} size={210} holdingUri={companionImageUrl ? `${API_BASE}${companionImageUrl}` : null} />
+      <View style={[styles.bubble, { backgroundColor: colors.surface }]} accessibilityLiveRegion="polite">
         <Text variant="title3" align="center">
           “{greeting}”
         </Text>
       </View>
-      <PressableScale haptic="select" onPress={() => speak(greeting)} style={styles.replay} accessibilityLabel="Hear the greeting again">
+      <PressableScale haptic="select" onPress={greet} style={styles.replay} accessibilityLabel="Hear the greeting again">
         <Ionicons name="volume-medium" size={18} color={colors.tint} />
         <Text variant="subhead" tone="tint" style={{ marginLeft: 6, fontWeight: "600" }}>
           Hear it again
@@ -287,18 +292,6 @@ const styles = StyleSheet.create({
   trayPhoto: { width: "100%", height: "100%" },
   star: { position: "absolute", left: 4, bottom: 4, width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   remove: { position: "absolute", top: 0, right: 0, width: 22, height: 22, borderRadius: 11, alignItems: "center", justifyContent: "center" },
-  companion: {
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-    shadowOpacity: 0.25,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 10 },
-  },
-  companionImage: { width: 200, height: 200 },
   bubble: { marginTop: spacing.lg, padding: spacing.md, borderRadius: radius.xl, maxWidth: 420 },
   replay: { flexDirection: "row", alignItems: "center", marginTop: spacing.md, padding: spacing.xs },
 });

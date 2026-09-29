@@ -53,6 +53,7 @@ export interface Child {
   sensory: SensoryFlag[];
   goals: string[]; // curriculum Domain codes
   interests: ChildInterest[];
+  buddy: string; // the on-screen friend's name (default "Pip")
 }
 
 export interface OnboardInterest {
@@ -71,7 +72,9 @@ export interface OnboardChildRequest {
   interests: OnboardInterest[];
 }
 
-export type ChildProfilePatch = Partial<Pick<Child, "nickname" | "birth_year_month" | "communication_level" | "sensory" | "goals">>;
+export type ChildProfilePatch = Partial<Pick<Child, "nickname" | "birth_year_month" | "communication_level" | "sensory" | "goals">> & {
+  buddy_name?: string; // "" resets to "Pip"
+};
 
 export interface Session {
   id: string;

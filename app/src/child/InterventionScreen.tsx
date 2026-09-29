@@ -7,6 +7,8 @@
  */
 import React, { useEffect, useRef, useState } from "react";
 import { Animated, Image, ImageSourcePropType, PanResponder, Pressable, StyleSheet, Text, View } from "react-native";
+import { Buddy } from "../companion/Buddy";
+import { useBuddy } from "../companion/useBuddy";
 import { InterventionType } from "../shared/api";
 import { colors, MIN_TOUCH_TARGET, radius, spacing, typography, childFonts } from "../shared/theme";
 
@@ -78,10 +80,26 @@ function InterestGreeting({
   imageSource: ImageSourcePropType;
   onDone: () => void;
 }) {
+  const buddy = useBuddy();
+  useEffect(() => {
+    buddy.enter();
+    buddy.gesture("wave");
+    buddy.say(`${guideName} ${COPY.interest_injection.prompt}`, { mood: "excited" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   return (
     <Screen title={`${guideName} ${COPY.interest_injection.prompt}`} prompt="">
-      <Image source={imageSource} style={styles.bigPhoto} />
-      <PrimaryAction label={COPY.interest_injection.buttonLabel} onPress={onDone} />
+      <View style={{ marginBottom: spacing.lg }}>
+        <Buddy buddy={buddy} size={190} holdingUri={typeof imageSource === "object" && imageSource && "uri" in imageSource ? (imageSource.uri as string) : null} />
+      </View>
+      <PrimaryAction
+        label={COPY.interest_injection.buttonLabel}
+        onPress={() => {
+          buddy.gesture("celebrate");
+          buddy.setMood("excited");
+          setTimeout(onDone, 700);
+        }}
+      />
     </Screen>
   );
 }
