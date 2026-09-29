@@ -7,8 +7,11 @@ from app.api.deps import get_current_user, require_guardian_of
 from app.db import get_db
 from app.models.identity import User
 from app.schemas.parent import (
+    AddInterestRequest,
     ChildOut,
+    ChildProfilePatch,
     ChildSummaryOut,
+    OnboardChildRequest,
     CompanionCandidate,
     CompanionConfirmRequest,
     CompanionOut,
@@ -21,7 +24,7 @@ from app.schemas.parent import (
     RecommendationOut,
     RecommendationResponseRequest,
 )
-from app.services import companion_service, export_service, parent_service
+from app.services import companion_service, export_service, interest_service, parent_service
 
 router = APIRouter(prefix="/parent", tags=["parent"])
 
@@ -34,6 +37,77 @@ def create_child(req: CreateChildRequest, user: User = Depends(get_current_user)
 @router.get("/children", response_model=list[ChildOut])
 def list_children(user: User = Depends(get_current_user), db: DBSession = Depends(get_db)):
     return parent_service.list_children_for_user(db, user.id)
+
+
+@router.post("/interests/search", response_model=list[CompanionCandidate])
+def search_interests(req: CompanionSearchRequest, user: User = Depends(get_current_user)):
+    """Photo search for onboarding — not tied to a child yet (the child is
+    only created once the whole flow is confirmed, plan Phase 1)."""
+    try:
+        results = companion_service.search_companion_images(req.query)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+    return [CompanionCandidate(**c) for c in results]
+
+
+@router.post("/children/onboard", response_model=ChildOut)
+def onboard_child(req: OnboardChildRequest, user: User = Depends(get_current_user), db: DBSession = Depends(get_db)):
+    try:
+        return parent_service.onboard_child(
+            db,
+            user.id,
+            nickname=req.nickname.strip(),
+            birth_year_month=req.birth_year_month,
+            communication_level=req.communication_level,
+            sensory=req.sensory,
+            goals=req.goals,
+            interests=[i.model_dump() for i in req.interests],
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+
+
+@router.get("/children/{child_id}", response_model=ChildOut)
+def get_child(child_id: str, user: User = Depends(get_current_user), db: DBSession = Depends(get_db)):
+    require_guardian_of(child_id, user, db)
+    return next(c for c in parent_service.list_children_for_user(db, user.id) if c.id == child_id)
+
+
+@router.patch("/children/{child_id}", response_model=ChildOut)
+def update_child(child_id: str, req: ChildProfilePatch, user: User = Depends(get_current_user), db: DBSession = Depends(get_db)):
+    require_guardian_of(child_id, user, db)
+    try:
+        return parent_service.update_child_profile(db, child_id, req.model_dump(exclude_unset=True))
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+
+
+@router.post("/children/{child_id}/interests", response_model=ChildOut)
+def add_interest(child_id: str, req: AddInterestRequest, user: User = Depends(get_current_user), db: DBSession = Depends(get_db)):
+    require_guardian_of(child_id, user, db)
+    try:
+        interest = interest_service.add_interest(db, child_id, req.label, req.image_url, req.source_title, req.favourite)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+    return interest.child
+
+
+@router.post("/children/{child_id}/interests/{interest_id}/favourite", response_model=ChildOut)
+def favourite_interest(child_id: str, interest_id: str, user: User = Depends(get_current_user), db: DBSession = Depends(get_db)):
+    require_guardian_of(child_id, user, db)
+    try:
+        return interest_service.set_favourite(db, child_id, interest_id)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc))
+
+
+@router.delete("/children/{child_id}/interests/{interest_id}", response_model=ChildOut)
+def remove_interest(child_id: str, interest_id: str, user: User = Depends(get_current_user), db: DBSession = Depends(get_db)):
+    require_guardian_of(child_id, user, db)
+    try:
+        return interest_service.remove_interest(db, child_id, interest_id)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc))
 
 
 @router.get("/children/{child_id}/summary", response_model=ChildSummaryOut)

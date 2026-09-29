@@ -4,7 +4,7 @@ Progress", "Topics to Review", never raw model internals or clinical framing.
 """
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class CreateChildRequest(BaseModel):
@@ -13,18 +13,63 @@ class CreateChildRequest(BaseModel):
     initial_interests: list[str] = []  # theme codes, README §5: "approximately 4-5"
 
 
+class ChildInterestOut(BaseModel):
+    id: str
+    label: str
+    image_url: str
+    is_favourite: bool
+
+    model_config = {"from_attributes": True}
+
+
 class ChildOut(BaseModel):
     id: str
     nickname: str
     birth_year_month: str
     companion_name: str | None = None
     companion_image_url: str | None = None
+    communication_level: str | None = None
+    sensory: list[str] = []
+    goals: list[str] = []
+    interests: list[ChildInterestOut] = []
 
     model_config = {"from_attributes": True}
 
 
+class OnboardInterest(BaseModel):
+    label: str
+    image_url: str  # must be a URL the /interests/search endpoint just returned
+    source_title: str
+    favourite: bool = False
+
+
+class OnboardChildRequest(BaseModel):
+    nickname: str = Field(min_length=1, max_length=40)
+    birth_year_month: str = Field(pattern=r"^\d{4}-(0[1-9]|1[0-2])$")
+    communication_level: str | None = None
+    sensory: list[str] = []
+    goals: list[str] = []
+    interests: list[OnboardInterest] = []
+
+
+class ChildProfilePatch(BaseModel):
+    nickname: str | None = Field(default=None, min_length=1, max_length=40)
+    birth_year_month: str | None = Field(default=None, pattern=r"^\d{4}-(0[1-9]|1[0-2])$")
+    communication_level: str | None = None
+    sensory: list[str] | None = None
+    goals: list[str] | None = None
+
+
+class AddInterestRequest(BaseModel):
+    label: str
+    image_url: str
+    source_title: str
+    favourite: bool = False
+
+
 class CompanionCandidate(BaseModel):
     image_url: str  # a real, live URL (Wikimedia) — not yet downloaded/stored
+    thumb_url: str | None = None  # small version for display in the app
     source_title: str
     license: str
 

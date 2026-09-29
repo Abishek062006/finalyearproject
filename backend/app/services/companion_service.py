@@ -95,6 +95,9 @@ def search_companion_images(query: str) -> list[dict]:
         "gsrlimit": MAX_CANDIDATES * 3,  # over-fetch — UNSAFE_TITLE_WORDS filtering below drops some
         "prop": "imageinfo",
         "iiprop": "url|extmetadata|mime",
+        # A 640px rendition, used both for display and as what the server stores:
+        # Commons originals are often 20+ MB, far more than a 480px companion needs.
+        "iiurlwidth": 640,
         "format": "json",
     })
     pages = data.get("query", {}).get("pages", {})
@@ -110,16 +113,44 @@ def search_companion_images(query: str) -> list[dict]:
             continue
         meta = info.get("extmetadata", {})
         license_name = meta.get("LicenseShortName", {}).get("value", "Unknown license")
-        candidates.append({"image_url": url, "source_title": title, "license": license_name})
+        sized = info.get("thumburl") or url
+        candidates.append({"image_url": sized, "thumb_url": sized, "source_title": title, "license": license_name})
         if len(candidates) == MAX_CANDIDATES:
             break
     return candidates
 
 
+# Wikimedia's own image hosts: originals on upload., sized renditions on thumb.
+ALLOWED_IMAGE_HOSTS = {"upload.wikimedia.org", "thumb.wikimedia.org"}
+MAX_IMAGE_BYTES = 15 * 1024 * 1024
+
+
+def validate_image_url(url: str) -> None:
+    """The client sends back the URL of the photo the parent picked, and the
+    server downloads it — so it must only ever fetch from Wikimedia's own
+    image host, or this becomes a server-side request forgery hole (the app
+    could be made to fetch internal/arbitrary URLs)."""
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme != "https" or parsed.hostname not in ALLOWED_IMAGE_HOSTS:
+        raise ValueError("image must come from the photo search results")
+
+
 def _download_and_square(url: str, dest: Path, size: int = 480) -> None:
+    validate_image_url(url)
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT_S) as resp:
-        raw = resp.read()
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT_S) as resp:
+                raw = resp.read(MAX_IMAGE_BYTES + 1)
+            break
+        except urllib.error.HTTPError as exc:
+            # Wikimedia's thumbnail service rate-limits bursts; back off and retry.
+            if exc.code == 429 and attempt < 2:
+                time.sleep(2 * (attempt + 1))
+                continue
+            raise
+    if len(raw) > MAX_IMAGE_BYTES:
+        raise ValueError("image is too large")
 
     image = Image.open(io.BytesIO(raw)).convert("RGB")
     side = min(image.width, image.height)

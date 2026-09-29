@@ -13,7 +13,8 @@ from sqlalchemy.orm import Session as DBSession
 from app.engine.learner_model import LearnerModel
 from app.engine.retention_model import RetentionModel
 from app.models.adults import Override
-from app.models.curriculum import Topic
+from app.models.curriculum import Domain, Topic
+from app.models.identity import Child
 
 
 @dataclass
@@ -53,7 +54,8 @@ class SessionPlanner:
         1. an educator's explicit assignment, while unexpired
         2. a due revision probe (docs/PLAN.md Phase 5) — something the
            child is at risk of forgetting takes priority over new material
-        3. the topic with the lowest current mastery
+        3. the topic with the lowest current mastery, within the parent's
+           goal domains when any of them have topics
         """
         assigned = self._active_topic_override(child_id)
         if assigned is not None:
@@ -66,6 +68,17 @@ class SessionPlanner:
         topics = self.db.query(Topic).all()
         if not topics:
             raise ValueError("No topics seeded — run scripts/seed.py")
+
+        # The parent's onboarding goals (plan Phase 1) narrow the candidates to
+        # those domains — but only when at least one goal domain actually has
+        # topics yet; otherwise fall back to everything rather than stall.
+        child = self.db.query(Child).filter_by(id=child_id).one_or_none()
+        goals = set(child.goals or []) if child else set()
+        if goals:
+            goal_domain_ids = {d.id for d in self.db.query(Domain).filter(Domain.code.in_(goals)).all()}
+            in_goals = [t for t in topics if t.domain_id in goal_domain_ids]
+            if in_goals:
+                topics = in_goals
 
         scored = [(t, self.learner_model.get_mastery(child_id, t.id).p) for t in topics]
         # Tie-break on topic code, not insertion order: with more than one

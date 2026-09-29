@@ -6,7 +6,7 @@ names, no addresses. `research_hash` is what leaves the building in any export.
 """
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -40,9 +40,17 @@ class Child(Base, UUIDPKMixin, TimestampMixin):
     companion_image_path: Mapped[str | None] = mapped_column(String(200), nullable=True)  # served via /media
     companion_source_title: Mapped[str | None] = mapped_column(String(200), nullable=True)  # provenance, e.g. Commons file title
 
+    # Onboarding profile (plan Phase 1). All nullable/empty by default so
+    # children created before onboarding existed — and every test/research
+    # fixture — behave exactly as they did.
+    communication_level: Mapped[str | None] = mapped_column(String(20), nullable=True)  # sentences|words|gestures|non_speaking
+    sensory: Mapped[list] = mapped_column(JSON, default=list)  # subset of sounds|lights|motion|timers
+    goals: Mapped[list] = mapped_column(JSON, default=list)  # curriculum Domain codes the parent wants to focus on
+
     guardianships: Mapped[list["Guardianship"]] = relationship(back_populates="child")
     educator_links: Mapped[list["EducatorLink"]] = relationship(back_populates="child")
     consents: Mapped[list["Consent"]] = relationship(back_populates="child")
+    interests: Mapped[list["ChildInterest"]] = relationship(back_populates="child", order_by="ChildInterest.created_at")
 
     @property
     def companion_image_url(self) -> str | None:
@@ -50,6 +58,27 @@ class Child(Base, UUIDPKMixin, TimestampMixin):
         stored, so ChildOut (pydantic from_attributes) can read it directly
         without every caller re-deriving the /media prefix."""
         return f"/media/{self.companion_image_path}" if self.companion_image_path else None
+
+
+class ChildInterest(Base, UUIDPKMixin, TimestampMixin):
+    """Something the child loves, with a parent-approved real photo (plan
+    Phase 1, generalizing Phase C's single companion). Exactly one may be the
+    favourite — that one is mirrored into Child.companion_* and becomes the
+    guide. Photos live under media/interests/, never re-fetched live."""
+
+    __tablename__ = "child_interests"
+
+    child_id: Mapped[str] = mapped_column(String(36), ForeignKey("children.id"), index=True)
+    label: Mapped[str] = mapped_column(String(60))
+    image_path: Mapped[str] = mapped_column(String(200))  # relative to media/
+    source_title: Mapped[str] = mapped_column(String(200))
+    is_favourite: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    child: Mapped["Child"] = relationship(back_populates="interests")
+
+    @property
+    def image_url(self) -> str:
+        return f"/media/{self.image_path}"
 
 
 class Guardianship(Base, UUIDPKMixin, TimestampMixin):

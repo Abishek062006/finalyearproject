@@ -19,7 +19,94 @@ from app.models.runtime import ActivityInstance, Session as SessionModel
 THEME_AXIS_CODE = "theme"
 
 
+COMMUNICATION_LEVELS = {"sentences", "words", "gestures", "non_speaking"}
+SENSORY_FLAGS = {"sounds", "lights", "motion", "timers"}
+
+
 def create_child(db: DBSession, owner_user_id: str, nickname: str, birth_year_month: str, initial_interest_codes: list[str]) -> Child:
+    child = _create_child_rows(db, owner_user_id, nickname, birth_year_month, initial_interest_codes)
+    db.commit()
+    db.refresh(child)
+    return child
+
+
+def _validate_profile(communication_level: str | None, sensory: list[str] | None, goals: list[str] | None) -> None:
+    if communication_level is not None and communication_level not in COMMUNICATION_LEVELS:
+        raise ValueError(f"Unknown communication level: {communication_level}")
+    if sensory is not None and not set(sensory) <= SENSORY_FLAGS:
+        raise ValueError(f"Unknown sensory flags: {sorted(set(sensory) - SENSORY_FLAGS)}")
+
+
+def _validate_goals(db: DBSession, goals: list[str] | None) -> None:
+    if not goals:
+        return
+    known = {d.code for d in db.query(Domain).all()}
+    if not set(goals) <= known:
+        raise ValueError(f"Unknown goals: {sorted(set(goals) - known)}")
+
+
+def onboard_child(
+    db: DBSession,
+    owner_user_id: str,
+    nickname: str,
+    birth_year_month: str,
+    communication_level: str | None,
+    sensory: list[str],
+    goals: list[str],
+    interests: list[dict],
+) -> Child:
+    """The whole onboarding flow (plan Phase 1) in one step: every photo is
+    validated and downloaded FIRST, and only then is anything written — so a
+    network failure half-way can never leave a half-set-up child behind.
+    Each free-text interest that matches a built-in theme also seeds that
+    theme's prior (README §6), exactly as the old theme chips did."""
+    from app.services import interest_service
+
+    _validate_profile(communication_level, sensory, goals)
+    _validate_goals(db, goals)
+    if len(interests) > interest_service.MAX_INTERESTS:
+        raise ValueError(f"At most {interest_service.MAX_INTERESTS} interests.")
+    for item in interests:
+        interest_service.validate_label(item["label"])
+
+    downloaded = [interest_service.download_interest_image(item["image_url"]) for item in interests]
+
+    theme_codes = []
+    for item in interests:
+        code = interest_service.infer_theme_code(item["label"])
+        if code and code not in theme_codes:
+            theme_codes.append(code)
+
+    child = _create_child_rows(db, owner_user_id, nickname, birth_year_month, theme_codes)
+    child.communication_level = communication_level
+    child.sensory = sorted(set(sensory))
+    child.goals = list(dict.fromkeys(goals))
+    favourite_index = next((i for i, item in enumerate(interests) if item.get("favourite")), 0)
+    for i, (item, image_path) in enumerate(zip(interests, downloaded)):
+        interest_service.attach_interest(db, child, item["label"], image_path, item["source_title"], favourite=(i == favourite_index))
+    db.commit()
+    db.refresh(child)
+    return child
+
+
+def update_child_profile(db: DBSession, child_id: str, patch: dict) -> Child:
+    child = db.query(Child).filter_by(id=child_id).one()
+    _validate_profile(patch.get("communication_level"), patch.get("sensory"), patch.get("goals"))
+    _validate_goals(db, patch.get("goals"))
+    for field in ("nickname", "birth_year_month", "communication_level"):
+        if patch.get(field) is not None:
+            setattr(child, field, patch[field])
+    if patch.get("sensory") is not None:
+        child.sensory = sorted(set(patch["sensory"]))
+    if patch.get("goals") is not None:
+        child.goals = list(dict.fromkeys(patch["goals"]))
+    db.commit()
+    db.refresh(child)
+    return child
+
+
+def _create_child_rows(db: DBSession, owner_user_id: str, nickname: str, birth_year_month: str, initial_interest_codes: list[str]) -> Child:
+    """Child + guardianship + priors + consents, flushed but NOT committed."""
     child = Child(nickname=nickname, birth_year_month=birth_year_month, created_by=owner_user_id)
     db.add(child)
     db.flush()
@@ -40,9 +127,7 @@ def create_child(db: DBSession, owner_user_id: str, nickname: str, birth_year_mo
     now = datetime.now(timezone.utc)
     db.add(Consent(child_id=child.id, scope="data_collection", granted=True, granted_by=owner_user_id, granted_at=now))
     db.add(Consent(child_id=child.id, scope="camera", granted=False, granted_by=owner_user_id, granted_at=now))
-
-    db.commit()
-    db.refresh(child)
+    db.flush()
     return child
 
 
@@ -279,11 +364,15 @@ def withdraw_and_delete_child(db: DBSession, child_id: str) -> None:
     from app.models.runtime import ActivityInstance, ActivityInstanceAssignment, Interaction, InterventionEvent, ScheduledProbe
     from app.models.runtime import Session as SessionModel
     from app.models.telemetry import CrashReport
-    from app.services import companion_service
+    from app.models.identity import ChildInterest
+    from app.services import companion_service, interest_service
 
     child = db.query(Child).filter_by(id=child_id).one_or_none()
     if child is not None:
-        companion_service.delete_companion_file(child)  # stored media isn't a DB row — delete it explicitly
+        # Stored photos aren't DB rows — erase them explicitly.
+        interest_service.delete_all_interest_files(child)
+        companion_service.delete_companion_file(child)
+        db.query(ChildInterest).filter_by(child_id=child_id).delete(synchronize_session=False)
 
     session_ids = [row.id for row in db.query(SessionModel.id).filter_by(child_id=child_id).all()]
     activity_ids = (

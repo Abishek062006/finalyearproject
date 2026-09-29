@@ -4,7 +4,7 @@ Base.metadata.create_all() (app/db.py:init_db) creates the whole schema.
 
 See docs/SCHEMA.md for the table dictionary these mirror, group by group.
 """
-from app.models.identity import Child, Consent, EducatorLink, Guardianship, User  # noqa: F401
+from app.models.identity import Child, ChildInterest, Consent, EducatorLink, Guardianship, User  # noqa: F401
 from app.models.curriculum import (  # noqa: F401
     ActivityTemplate,
     Domain,
