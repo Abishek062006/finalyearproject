@@ -4,10 +4,11 @@
  * never edits history.
  */
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Platform, Pressable, StyleSheet, Switch, Text, View } from "react-native";
+import { Screen } from "../design";
 import { api, ConsentState } from "../shared/api";
 import { colors, spacing } from "../shared/theme";
-import { Card, ErrorText, ScreenTitle, SecondaryButton } from "../shared/ui";
+import { Card, ErrorText } from "../shared/ui";
 
 const SCOPE_LABELS: Record<string, { title: string; description: string }> = {
   data_collection: {
@@ -101,11 +102,7 @@ export function ConsentScreen({
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.headerRow}>
-        <ScreenTitle>Privacy & consent</ScreenTitle>
-        <SecondaryButton title="← Back" onPress={onBack} />
-      </View>
+    <Screen title="Privacy & consent" onBack={onBack} backLabel="Progress">
 
       <ErrorText>{error}</ErrorText>
 
@@ -173,13 +170,11 @@ export function ConsentScreen({
         condition. Signals are treated as uncertain and only ever inform gentle, reversible adjustments
         to the lesson.
       </Text>
-    </ScrollView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: spacing.lg, maxWidth: 560, width: "100%", alignSelf: "center" },
-  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   textCol: { flex: 1, marginRight: spacing.md },
   title: { fontSize: 16, fontWeight: "700", color: colors.textPrimary, marginBottom: 4 },

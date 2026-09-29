@@ -4,10 +4,11 @@
  * explicitly labelled as internal model estimates.
  */
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { Screen } from "../design";
 import { api, EducatorChildProfile, LockState } from "../shared/api";
 import { colors, spacing } from "../shared/theme";
-import { Card, ErrorText, ProgressBar, ScreenTitle, SecondaryButton, SectionLabel } from "../shared/ui";
+import { Card, ErrorText, ProgressBar, SectionLabel } from "../shared/ui";
 import { AxisEvidenceCard } from "./AxisEvidenceCard";
 import { TopicAssignCard } from "./TopicAssignCard";
 
@@ -44,11 +45,7 @@ export function EducatorDashboardScreen({ childId, onBack }: { childId: string; 
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.headerRow}>
-        <ScreenTitle>Detailed Profile</ScreenTitle>
-        <SecondaryButton title="← Back" onPress={onBack} />
-      </View>
+    <Screen title="Student profile" onBack={onBack} backLabel="Students">
 
       <ErrorText>{error}</ErrorText>
 
@@ -84,13 +81,11 @@ export function EducatorDashboardScreen({ childId, onBack }: { childId: string; 
           <TopicAssignCard childId={childId} />
         </>
       )}
-    </ScrollView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: spacing.lg, maxWidth: 600, width: "100%", alignSelf: "center" },
-  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   childName: { fontSize: 18, fontWeight: "700", color: colors.primaryDark, marginBottom: spacing.sm },
   progressRow: { marginBottom: spacing.sm },
   progressHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },

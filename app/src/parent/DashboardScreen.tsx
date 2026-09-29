@@ -4,10 +4,11 @@
  * level of detail is the educator dashboard's job, docs/PLAN.md Phase 4).
  */
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { Screen } from "../design";
 import { api, ChildSummary } from "../shared/api";
 import { colors, spacing } from "../shared/theme";
-import { Card, ErrorText, ProgressBar, ScreenTitle, SecondaryButton, SectionLabel } from "../shared/ui";
+import { Card, ErrorText, ProgressBar, SecondaryButton, SectionLabel } from "../shared/ui";
 import { InviteEducatorCard } from "./InviteEducatorCard";
 
 function formatDate(iso: string): string {
@@ -46,11 +47,7 @@ export function DashboardScreen({ childId, onBack, onOpenConsent }: { childId: s
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.headerRow}>
-        <ScreenTitle>Learning Progress</ScreenTitle>
-        <SecondaryButton title="← Back" onPress={onBack} />
-      </View>
+    <Screen title="Progress" onBack={onBack} backLabel="Children">
 
       <ErrorText>{error}</ErrorText>
 
@@ -165,36 +162,34 @@ export function DashboardScreen({ childId, onBack, onOpenConsent }: { childId: s
           <SecondaryButton title="Privacy & camera settings" onPress={onOpenConsent} />
         </>
       )}
-    </ScrollView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: spacing.lg, maxWidth: 560, width: "100%", alignSelf: "center" },
-  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   statRow: { flexDirection: "row", gap: spacing.md },
   statCard: { flex: 1, alignItems: "center" },
-  statValue: { fontSize: 32, fontWeight: "800", color: colors.primaryDark },
+  statValue: { fontSize: 32, fontWeight: "700", color: colors.textPrimary },
   statLabel: { fontSize: 13, color: colors.textSecondary, marginTop: 4, textAlign: "center" },
   progressRow: { marginBottom: spacing.sm },
   progressHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
   progressLabel: { fontSize: 15, fontWeight: "600", color: colors.textPrimary },
-  progressPercent: { fontSize: 15, fontWeight: "700", color: colors.primaryDark },
+  progressPercent: { fontSize: 15, fontWeight: "600", color: colors.textSecondary },
   mutedText: { color: colors.textSecondary, fontSize: 14 },
-  suggestionRow: { paddingVertical: spacing.xs, borderTopWidth: 1, borderTopColor: "#F0E9DC" },
+  suggestionRow: { paddingVertical: spacing.xs, borderTopWidth: 1, borderTopColor: colors.border },
   suggestionText: { fontSize: 15, color: colors.textPrimary, marginBottom: 8 },
   suggestionButtons: { flexDirection: "row", gap: spacing.sm },
   acceptButton: { backgroundColor: colors.success, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 16 },
-  acceptButtonText: { color: "#fff", fontWeight: "700" },
+  acceptButtonText: { color: "#fff", fontWeight: "600" },
   skipButton: { paddingVertical: 8, paddingHorizontal: 16 },
   skipButtonText: { color: colors.textSecondary, fontWeight: "600" },
   reviewRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 },
   reviewLabel: { fontSize: 15, color: colors.textPrimary },
-  reviewPercent: { fontSize: 15, fontWeight: "700", color: colors.primaryDark },
+  reviewPercent: { fontSize: 15, fontWeight: "600", color: colors.textSecondary },
   historyRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 },
   historyDate: { fontSize: 14, color: colors.textPrimary },
   interestRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  interestChip: { backgroundColor: "#F6EFE0", borderRadius: 14, paddingVertical: 8, paddingHorizontal: 14, alignItems: "center" },
-  interestChipLabel: { fontSize: 15, fontWeight: "700", color: colors.textPrimary },
+  interestChip: { backgroundColor: colors.surfaceMuted, borderRadius: 14, paddingVertical: 8, paddingHorizontal: 14, alignItems: "center" },
+  interestChipLabel: { fontSize: 15, fontWeight: "600", color: colors.textPrimary },
   interestChipLevel: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
 });

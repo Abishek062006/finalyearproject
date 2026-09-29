@@ -6,6 +6,12 @@
       "runtimeExecutable": "bash",
       "runtimeArgs": ["-c", "cd app && npx expo start --web --port 19006"],
       "port": 19006
+    },
+    {
+      "name": "aura-app-verify",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd app && npx expo start --web --clear --port 19007"],
+      "port": 19007
     }
   ]
 }

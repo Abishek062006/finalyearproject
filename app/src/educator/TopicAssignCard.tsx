@@ -44,7 +44,7 @@ export function TopicAssignCard({ childId }: { childId: string }) {
 const styles = StyleSheet.create({
   description: { fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
-  chip: { borderWidth: 1, borderColor: "#E5DDD1", borderRadius: 16, paddingVertical: 8, paddingHorizontal: 14, backgroundColor: "#fff" },
+  chip: { borderWidth: 1, borderColor: colors.border, borderRadius: 16, paddingVertical: 8, paddingHorizontal: 14, backgroundColor: colors.surface },
   chipAssigned: { backgroundColor: colors.success, borderColor: colors.success },
   chipText: { fontSize: 14, color: colors.textPrimary, fontWeight: "600" },
   chipTextAssigned: { color: "#fff" },

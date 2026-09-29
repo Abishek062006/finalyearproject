@@ -1,57 +1,40 @@
 /**
- * Small shared building blocks for the parent/educator UI (portrait, normal
- * information density) — deliberately a different visual language from the
- * child screen (README §2: "should NOT look like three copies of the same
- * interface").
+ * LEGACY primitive names, kept so the not-yet-rebuilt Parent/Educator
+ * screens keep compiling — each one now just delegates to the design system
+ * (src/design), so those screens already get the new buttons, fields, press
+ * physics and haptics. New code should import from src/design directly.
  */
-import React from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { colors, radius, spacing } from "./theme";
+import React, { useEffect } from "react";
+import { StyleSheet, View } from "react-native";
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
+import { Button, Card as DSCard, springs, Text, TextField, useTheme } from "../design";
 
 export function Card({ children, style }: { children: React.ReactNode; style?: object }) {
-  return <View style={[styles.card, style]}>{children}</View>;
+  return <DSCard style={style}>{children}</DSCard>;
 }
 
 export function ScreenTitle({ children }: { children: React.ReactNode }) {
-  return <Text style={styles.screenTitle}>{children}</Text>;
+  return (
+    <Text variant="title2" accessibilityRole="header" style={{ marginBottom: 12 }}>
+      {children}
+    </Text>
+  );
 }
 
 export function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <Text style={styles.sectionLabel}>{children}</Text>;
+  return (
+    <Text variant="headline" style={{ marginBottom: 8 }}>
+      {children}
+    </Text>
+  );
 }
 
-export function PrimaryButton({
-  title,
-  onPress,
-  disabled,
-  loading,
-}: {
-  title: string;
-  onPress: () => void;
-  disabled?: boolean;
-  loading?: boolean;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled || loading}
-      style={({ pressed }) => [
-        styles.primaryButton,
-        (disabled || loading) && styles.buttonDisabled,
-        pressed && !disabled && styles.buttonPressed,
-      ]}
-    >
-      {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>{title}</Text>}
-    </Pressable>
-  );
+export function PrimaryButton({ title, onPress, disabled, loading }: { title: string; onPress: () => void; disabled?: boolean; loading?: boolean }) {
+  return <Button title={title} onPress={onPress} disabled={disabled} loading={loading} />;
 }
 
 export function SecondaryButton({ title, onPress }: { title: string; onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} style={styles.secondaryButton}>
-      <Text style={styles.secondaryButtonText}>{title}</Text>
-    </Pressable>
-  );
+  return <Button title={title} onPress={onPress} variant="plain" size="medium" fullWidth />;
 }
 
 export function LabeledInput({
@@ -70,73 +53,49 @@ export function LabeledInput({
   autoCapitalize?: "none" | "words" | "sentences" | "characters";
 }) {
   return (
-    <View style={styles.inputGroup}>
-      <Text style={styles.inputLabel}>{label}</Text>
-      <TextInput
-        style={styles.input}
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor={colors.textSecondary}
-        secureTextEntry={secureTextEntry}
-        autoCapitalize={autoCapitalize}
-      />
-    </View>
+    <TextField
+      label={label}
+      value={value}
+      onChangeText={onChangeText}
+      placeholder={placeholder}
+      secureTextEntry={secureTextEntry}
+      autoCapitalize={autoCapitalize}
+    />
   );
 }
 
 export function ProgressBar({ percent, color }: { percent: number; color?: string }) {
+  const { colors } = useTheme();
+  const width = useSharedValue(0);
+  const clamped = Math.max(0, Math.min(100, percent));
+
+  useEffect(() => {
+    width.value = withSpring(clamped, springs.gentle);
+  }, [clamped, width]);
+
+  const fillStyle = useAnimatedStyle(() => ({ width: `${width.value}%` }));
+
   return (
-    <View style={styles.progressTrack}>
-      <View style={[styles.progressFill, { width: `${Math.max(0, Math.min(100, percent))}%`, backgroundColor: color ?? colors.primary }]} />
+    <View
+      style={[styles.track, { backgroundColor: colors.fill }]}
+      accessibilityRole="progressbar"
+      accessibilityValue={{ min: 0, max: 100, now: Math.round(clamped) }}
+    >
+      <Animated.View style={[styles.fill, { backgroundColor: color ?? colors.tint }, fillStyle]} />
     </View>
   );
 }
 
 export function ErrorText({ children }: { children: React.ReactNode }) {
   if (!children) return null;
-  return <Text style={styles.errorText}>{children}</Text>;
+  return (
+    <Text variant="footnote" tone="destructive" style={{ marginBottom: 12 }}>
+      {children}
+    </Text>
+  );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.card,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    shadowColor: colors.cardShadow,
-    shadowOpacity: 1,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
-  },
-  screenTitle: { fontSize: 26, fontWeight: "700", color: colors.textPrimary, marginBottom: spacing.md },
-  sectionLabel: { fontSize: 13, fontWeight: "700", color: colors.textSecondary, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: spacing.xs },
-  primaryButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 16,
-    paddingVertical: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  buttonPressed: { backgroundColor: colors.primaryDark },
-  buttonDisabled: { opacity: 0.5 },
-  primaryButtonText: { color: "#fff", fontWeight: "700", fontSize: 16 },
-  secondaryButton: { paddingVertical: 10, alignItems: "center" },
-  secondaryButtonText: { color: colors.primaryDark, fontWeight: "600", fontSize: 15 },
-  inputGroup: { marginBottom: spacing.sm },
-  inputLabel: { fontSize: 13, color: colors.textSecondary, marginBottom: 4, fontWeight: "600" },
-  input: {
-    borderWidth: 1,
-    borderColor: "#E5DDD1",
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: colors.textPrimary,
-    backgroundColor: "#fff",
-  },
-  progressTrack: { height: 10, borderRadius: 5, backgroundColor: "#EFE7DA", overflow: "hidden" },
-  progressFill: { height: "100%", borderRadius: 5 },
-  errorText: { color: "#C0392B", fontSize: 14, marginBottom: spacing.sm },
+  track: { height: 8, borderRadius: 4, overflow: "hidden" },
+  fill: { height: "100%", borderRadius: 4 },
 });

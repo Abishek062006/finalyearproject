@@ -3,7 +3,7 @@
     "name": "AURA",
     "slug": "aura-child-app",
     "version": "0.1.0",
-    "orientation": "landscape",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
@@ -21,6 +21,11 @@
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
-    }
+    },
+    "plugins": [
+      "expo-font",
+      "expo-audio",
+      "expo-secure-store"
+    ]
   }
 }

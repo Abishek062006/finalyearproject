@@ -68,7 +68,8 @@ function ArmRow({
     <View style={styles.armRow}>
       <View style={styles.armHeader}>
         <Text style={styles.armLabel}>
-          {arm.label} {arm.is_current_winner ? "🏆" : ""}
+          {arm.label}
+          {arm.is_current_winner ? <Text style={styles.winnerBadge}>  Winner</Text> : null}
         </Text>
         <Text style={styles.armStats}>
           {arm.accuracy_percent}%{statLabel ? ` ${statLabel}` : ""} · n={arm.trials}
@@ -88,9 +89,10 @@ const styles = StyleSheet.create({
   trialCount: { fontSize: 12, color: colors.textSecondary },
   verdictText: { fontSize: 13, color: colors.success, fontWeight: "600", marginBottom: spacing.sm },
   verdictTextMuted: { fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm },
-  armRow: { marginBottom: spacing.sm, paddingTop: spacing.xs, borderTopWidth: 1, borderTopColor: "#F0E9DC" },
+  armRow: { marginBottom: spacing.sm, paddingTop: spacing.xs, borderTopWidth: 1, borderTopColor: colors.border },
   armHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
   armLabel: { fontSize: 15, fontWeight: "600", color: colors.textPrimary },
+  winnerBadge: { fontSize: 12, fontWeight: "600", color: colors.success },
   armStats: { fontSize: 13, color: colors.textSecondary },
   lockRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 6 },
   lockLabel: { fontSize: 12, color: colors.textSecondary },

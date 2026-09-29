@@ -1,27 +1,37 @@
 /**
- * Minimal token storage. Uses localStorage on web (survives a page reload,
- * which matters for manual testing) and falls back to an in-memory value on
- * native for now — no @react-native-async-storage dependency yet since this
- * is still a research-debugging build (docs/PLAN.md Phase 3). Revisit before
- * anything resembling a real deployment.
+ * Auth token storage. Reads are synchronous (api.ts needs the token on every
+ * request) from an in-memory copy; writes go through to persistent storage:
+ * the OS keychain/keystore via expo-secure-store on native, localStorage on
+ * web. `hydrate()` must run once at startup before the first API call —
+ * AuthProvider does this.
  */
+import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
+const KEY = "aura_token";
 let memoryToken: string | null = null;
 
+const isWeb = Platform.OS === "web" && typeof window !== "undefined";
+
 export const authStore = {
-  getToken(): string | null {
-    if (Platform.OS === "web" && typeof window !== "undefined") {
-      return window.localStorage.getItem("aura_token");
+  async hydrate(): Promise<void> {
+    try {
+      memoryToken = isWeb ? window.localStorage.getItem(KEY) : await SecureStore.getItemAsync(KEY);
+    } catch {
+      memoryToken = null;
     }
+  },
+  getToken(): string | null {
     return memoryToken;
   },
   setToken(token: string | null): void {
-    if (Platform.OS === "web" && typeof window !== "undefined") {
-      if (token) window.localStorage.setItem("aura_token", token);
-      else window.localStorage.removeItem("aura_token");
+    memoryToken = token;
+    if (isWeb) {
+      if (token) window.localStorage.setItem(KEY, token);
+      else window.localStorage.removeItem(KEY);
       return;
     }
-    memoryToken = token;
+    const write = token ? SecureStore.setItemAsync(KEY, token) : SecureStore.deleteItemAsync(KEY);
+    write.catch(() => {});
   },
 };

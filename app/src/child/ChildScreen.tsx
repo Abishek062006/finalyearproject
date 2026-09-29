@@ -13,14 +13,19 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { haptic, ParentalGate, playSound, useSettings, useTheme } from "../design";
 import { GuideBubble } from "./GuideBubble";
 import { CountingScene } from "./CountingScene";
+import { IdentifyScene } from "./IdentifyScene";
 import { TapAnswer } from "./TapAnswer";
 import { DragDropAnswer } from "./DragDropAnswer";
+import { MatchingBoard } from "./MatchingBoard";
+import { SequenceBoard } from "./SequenceBoard";
 import { InterventionScreen } from "./InterventionScreen";
-import { api, Activity, Session } from "../shared/api";
+import { api, API_BASE, Activity, Session } from "../shared/api";
 import { pendingCount } from "../shared/offlineQueue";
-import { colors, spacing, ThemeCode } from "../shared/theme";
+import { colors, spacing, THEME_ASSETS, ThemeCode, childFonts } from "../shared/theme";
 
 type Phase = "loading" | "playing" | "feedback" | "error";
 
@@ -32,7 +37,11 @@ export function ChildScreen({ childId, onExit }: { childId: string; onExit: () =
   const [itemIndex, setItemIndex] = useState(0);
   const [lastCorrect, setLastCorrect] = useState<boolean | null>(null);
   const [roundsCompleted, setRoundsCompleted] = useState(0);
+  const [boardResolved, setBoardResolved] = useState(0); // "matching"/"sequencing" only — how many of the whole-board items are answered so far
   const responseStartedAt = useRef<number>(Date.now());
+  const { colors: childColors } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { showDecisionOverlay } = useSettings();
 
   const bootstrap = useCallback(async () => {
     try {
@@ -42,6 +51,7 @@ export function ChildScreen({ childId, onExit }: { childId: string; onExit: () =
       setSession(s);
       setActivity(a);
       setItemIndex(0);
+      setBoardResolved(0);
       responseStartedAt.current = Date.now();
       setPhase("playing");
     } catch (err) {
@@ -57,15 +67,52 @@ export function ChildScreen({ childId, onExit }: { childId: string; onExit: () =
     bootstrap();
   }, [bootstrap]);
 
-  async function handleChoose(value: number) {
+  // Shared by the last item of a normal (counting/letter_identify) activity,
+  // an intervention finishing, and a whole board (matching/sequencing)
+  // finishing — all three end the same way: fetch whatever the
+  // DecisionEngine picks next.
+  async function goToNextActivity() {
+    if (!session) return;
+    try {
+      const next = await api.nextActivity(session.id);
+      setActivity(next);
+      setItemIndex(0);
+      setBoardResolved(0);
+      responseStartedAt.current = Date.now();
+      setPhase("playing");
+    } catch (err) {
+      await showNextActivityError(err);
+    }
+  }
+
+  // MatchingBoard/SequenceBoard resolve items in whatever order the child
+  // taps them, not sequentially by itemIndex — each resolution is recorded
+  // immediately, exactly like a single tap-choice answer.
+  async function handleBoardItemAnswered(itemId: string, correct: boolean, responseTimeMs: number) {
+    if (!activity) return;
+    setBoardResolved((n) => n + 1);
+    giveAnswerFeedback(correct, "board");
+    await api.submitAnswerReliably(activity.id, { item_id: itemId, correct, response_time_ms: responseTimeMs });
+  }
+
+  async function handleBoardAllDone() {
+    haptic("success");
+    playSound("celebrate");
+    setRoundsCompleted((r) => r + 1);
+    await goToNextActivity();
+  }
+
+  async function handleChoose(value: string | number) {
     if (!activity || !session || phase !== "playing") return;
 
     const item = activity.spec.items[itemIndex];
-    const correct = value === item.answer.count;
+    const answerValue = "label" in item.answer ? item.answer.label : "count" in item.answer ? item.answer.count : 0;
+    const correct = value === answerValue;
     const responseTimeMs = Date.now() - responseStartedAt.current;
 
     setLastCorrect(correct);
     setPhase("feedback");
+    giveAnswerFeedback(correct, "single");
 
     await api.submitAnswerReliably(activity.id, {
       item_id: item.id,
@@ -81,17 +128,34 @@ export function ChildScreen({ childId, onExit }: { childId: string; onExit: () =
         setPhase("playing");
         return;
       }
-      try {
-        const next = await api.nextActivity(session.id);
-        setActivity(next);
-        setItemIndex(0);
-        setRoundsCompleted((r) => r + 1);
-        responseStartedAt.current = Date.now();
-        setPhase("playing");
-      } catch (err) {
-        await showNextActivityError(err);
-      }
+      setRoundsCompleted((r) => r + 1);
+      await goToNextActivity();
     }, 1100);
+  }
+
+  // Never punitive: a wrong answer is a soft tap and a quiet low tone, never a buzzer (README §31).
+  function giveAnswerFeedback(correct: boolean, kind: "single" | "board") {
+    if (correct) {
+      haptic(kind === "board" ? "drop" : "success");
+      playSound(kind === "board" ? "pop" : "success");
+    } else {
+      haptic("gentleNudge");
+      playSound("nudge");
+    }
+  }
+
+  // Only reachable through the grown-ups gate (ParentalGate) — never a plain tap.
+  async function finishForToday() {
+    if (session) {
+      try {
+        await api.endSession(session.id);
+      } catch {
+        // Offline: nothing to lose here (endSession just stamps ended_at/
+        // end_reason) — let the child leave either way rather than trap
+        // them on this screen.
+      }
+    }
+    onExit();
   }
 
   async function showNextActivityError(err: unknown) {
@@ -113,8 +177,8 @@ export function ChildScreen({ childId, onExit }: { childId: string; onExit: () =
 
   if (phase === "loading") {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={[styles.center, { backgroundColor: childColors.background }]}>
+        <ActivityIndicator size="large" color={childColors.tint} />
         <Text style={styles.loadingText}>Getting ready to play...</Text>
       </View>
     );
@@ -122,13 +186,13 @@ export function ChildScreen({ childId, onExit }: { childId: string; onExit: () =
 
   if (phase === "error") {
     return (
-      <View style={styles.center}>
+      <View style={[styles.center, { backgroundColor: childColors.background }]}>
+        <View style={[styles.gateSlot, { top: insets.top + spacing.sm }]}>
+          <ParentalGate onUnlock={onExit} />
+        </View>
         <Text style={styles.errorText}>{errorMessage}</Text>
         <Pressable style={styles.retryButton} onPress={bootstrap}>
           <Text style={styles.retryButtonText}>Try again</Text>
-        </Pressable>
-        <Pressable onPress={onExit} style={{ marginTop: spacing.md }}>
-          <Text style={styles.backLink}>← Back</Text>
         </Pressable>
       </View>
     );
@@ -136,11 +200,22 @@ export function ChildScreen({ childId, onExit }: { childId: string; onExit: () =
 
   if (!activity) return null;
 
+  const theme = (activity.spec.theme as ThemeCode) ?? "dino";
+  // Whichever image is "who's talking" throughout this screen: the child's
+  // own parent-chosen companion when they have one, the theme's own bundled
+  // photo otherwise (docs/PLAN.md UX-overhaul Phase C). Never affects which
+  // theme the actual lesson content (CountingScene's photo) uses.
+  const avatarImageSource = activity.spec.companion_image_url
+    ? { uri: `${API_BASE}${activity.spec.companion_image_url}` }
+    : THEME_ASSETS[theme].image;
+  const accentColor = THEME_ASSETS[theme].accent;
+
   if (activity.spec.is_intervention) {
     return (
       <InterventionScreen
         type={activity.spec.intervention_type!}
-        theme={(activity.spec.theme as ThemeCode) ?? "dino"}
+        guideName={activity.spec.guide_name}
+        imageSource={avatarImageSource}
         onDone={() => handleInterventionDone()}
       />
     );
@@ -149,94 +224,129 @@ export function ChildScreen({ childId, onExit }: { childId: string; onExit: () =
   async function handleInterventionDone() {
     if (!activity || !session) return;
     await api.submitAnswerReliably(activity.id, { item_id: null, correct: true, response_time_ms: 0 });
-    try {
-      const next = await api.nextActivity(session.id);
-      setActivity(next);
-      setItemIndex(0);
-      responseStartedAt.current = Date.now();
-      setPhase("playing");
-    } catch (err) {
-      await showNextActivityError(err);
-    }
+    await goToNextActivity();
   }
-
-  const item = activity.spec.items[itemIndex];
-  const theme = (activity.spec.theme as ThemeCode) ?? "dino";
-  const choices = [item.answer.count, ...item.distractors];
-
+  // "matching"/"sequencing" render the ENTIRE item set as one board
+  // (MatchingBoard/SequenceBoard own their own progression), unlike
+  // "counting"/"letter_identify" which step through activity.spec.items one
+  // at a time via itemIndex — these two families don't share item shapes
+  // (sequencing items have no "count"/"label" at all), so branch before
+  // touching itemIndex-based derived values at all.
   const encouragement = activity.spec.encouragement;
   const guideText =
     phase === "feedback"
       ? lastCorrect
-        ? encouragement[itemIndex % encouragement.length] ?? "Great job! 🎉"
+        ? encouragement[itemIndex % encouragement.length] ?? "Great job!"
         : "Almost! Let's try another one."
       : "Let's play!";
 
-  async function finishForToday() {
-    if (session) {
-      try {
-        await api.endSession(session.id);
-      } catch {
-        // Offline: nothing to lose here (endSession just stamps ended_at/
-        // end_reason) — let the child leave either way rather than trap
-        // them on this screen.
-      }
-    }
-    onExit();
+  let sceneAndAnswer: React.ReactNode;
+  if (activity.spec.activity_kind === "matching") {
+    sceneAndAnswer = (
+      <>
+        <IdentifyScene imageSource={avatarImageSource} promptText={activity.spec.prompt_text} />
+        {/* key=activity.id forces a full remount per activity — without it,
+            React reuses the same component instance across activities and
+            its internal per-item state (which pairs are resolved) leaks
+            into the NEXT board, whose items have different ids entirely. */}
+        <MatchingBoard
+          key={activity.id}
+          items={activity.spec.items.map((i) => ({ id: i.id, label: "label" in i.answer ? i.answer.label : "" }))}
+          onItemAnswered={handleBoardItemAnswered}
+          onAllDone={handleBoardAllDone}
+          disabled={phase !== "playing"}
+        />
+      </>
+    );
+  } else if (activity.spec.activity_kind === "sequencing") {
+    sceneAndAnswer = (
+      <>
+        <IdentifyScene imageSource={avatarImageSource} promptText={activity.spec.prompt_text} />
+        {/* key=activity.id — see the identical comment on MatchingBoard above. */}
+        <SequenceBoard
+          key={activity.id}
+          items={activity.spec.items.map((i) => ({
+            id: i.id,
+            value: "value" in i.answer ? i.answer.value : 0,
+            position: "position" in i.answer ? i.answer.position : 0,
+          }))}
+          method={activity.spec.method}
+          onItemAnswered={handleBoardItemAnswered}
+          onAllDone={handleBoardAllDone}
+          disabled={phase !== "playing"}
+        />
+      </>
+    );
+  } else {
+    const item = activity.spec.items[itemIndex];
+    const answerValue = "label" in item.answer ? item.answer.label : "count" in item.answer ? item.answer.count : 0;
+    const choices = [answerValue, ...item.distractors];
+    // "letter_identify" prompts carry a "{label}" placeholder each item
+    // fills in with its own target letter (content/generator's
+    // identify_prompt_template) — counting prompts have no placeholder.
+    const promptText =
+      activity.spec.activity_kind === "letter_identify" && "label" in item.answer
+        ? activity.spec.prompt_text.replace("{label}", item.answer.label)
+        : activity.spec.prompt_text;
+
+    sceneAndAnswer = (
+      <>
+        {activity.spec.activity_kind === "letter_identify" ? (
+          <IdentifyScene imageSource={avatarImageSource} promptText={promptText} />
+        ) : (
+          <CountingScene theme={theme} count={"count" in item.answer ? item.answer.count : 0} promptText={promptText} />
+        )}
+
+        {activity.spec.modality === "drag_drop" ? (
+          // key=item.id forces a clean remount per item, so the one-time
+          // shuffle in DragDropAnswer can never re-run (and re-order tiles
+          // under the child's finger) mid-gesture on an unrelated re-render.
+          <DragDropAnswer key={item.id} choices={choices} onChoose={handleChoose} disabled={phase !== "playing"} />
+        ) : (
+          <TapAnswer key={item.id} choices={choices} onChoose={handleChoose} disabled={phase !== "playing"} />
+        )}
+      </>
+    );
   }
 
   return (
-    <View style={styles.container}>
-      <Pressable style={styles.exitButton} onPress={finishForToday}>
-        <Text style={styles.exitButtonText}>Done for today</Text>
-      </Pressable>
+    <View style={[styles.container, { backgroundColor: childColors.background, paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + spacing.lg }]}>
+      <View style={[styles.gateSlot, { top: insets.top + spacing.sm }]}>
+        <ParentalGate onUnlock={finishForToday} />
+      </View>
 
-      <GuideBubble theme={theme} text={guideText} />
+      <GuideBubble imageSource={avatarImageSource} accentColor={accentColor} text={guideText} />
 
-      <CountingScene theme={theme} count={item.answer.count} promptText={activity.spec.prompt_text} />
+      {sceneAndAnswer}
 
-      {activity.spec.modality === "drag_drop" ? (
-        // key=item.id forces a clean remount per item, so the one-time
-        // shuffle in DragDropAnswer can never re-run (and re-order tiles
-        // under the child's finger) mid-gesture on an unrelated re-render.
-        <DragDropAnswer key={item.id} choices={choices} onChoose={handleChoose} disabled={phase !== "playing"} />
-      ) : (
-        <TapAnswer key={item.id} choices={choices} onChoose={handleChoose} disabled={phase !== "playing"} />
-      )}
-
-      {/* Dev-only debug strip — shows the adaptive decisions being made.
-          Remove before this becomes a child-facing build (docs/PLAN.md Phase 3+). */}
-      <View style={styles.debugStrip}>
+      {/* Research/debug strip — the adaptive engine's decisions. Off unless a grown-up
+          turns it on in Settings > Research & development (dev builds only). */}
+      {showDecisionOverlay && (
+      <View style={[styles.debugStrip, { bottom: insets.bottom + spacing.xs }]}>
         <Text style={styles.debugText}>
-          topic={activity.spec.topic_code} ({activity.spec.topic_reason}) · difficulty={activity.spec.difficulty} ·
-          method={activity.spec.method} [{activity.spec.decision_types.teaching_method}] · modality=
-          {activity.spec.modality} [{activity.spec.decision_types.modality}] · item {itemIndex + 1}/
-          {activity.spec.items.length} · rounds={roundsCompleted}
+          topic={activity.spec.topic_code} ({activity.spec.topic_reason}) · kind={activity.spec.activity_kind} ·
+          difficulty={activity.spec.difficulty} · method={activity.spec.method} [
+          {activity.spec.decision_types.teaching_method}] · modality={activity.spec.modality} [
+          {activity.spec.decision_types.modality}] ·{" "}
+          {activity.spec.activity_kind === "matching" || activity.spec.activity_kind === "sequencing"
+            ? `resolved ${boardResolved}/${activity.spec.items.length}`
+            : `item ${itemIndex + 1}/${activity.spec.items.length}`}{" "}
+          · rounds={roundsCompleted}
         </Text>
       </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background, padding: spacing.lg, justifyContent: "center" },
-  center: { flex: 1, backgroundColor: colors.background, alignItems: "center", justifyContent: "center", padding: spacing.lg },
+  container: { flex: 1, paddingHorizontal: spacing.lg, justifyContent: "center" },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.lg },
+  gateSlot: { position: "absolute", right: spacing.md, zIndex: 10 },
   loadingText: { marginTop: spacing.md, fontSize: 18, color: colors.textSecondary },
   errorText: { color: colors.textPrimary, fontSize: 16, textAlign: "center", marginBottom: spacing.lg },
   retryButton: { backgroundColor: colors.primary, paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, borderRadius: 20 },
-  retryButtonText: { color: "#fff", fontWeight: "700", fontSize: 18 },
-  backLink: { color: colors.textSecondary, fontWeight: "600", fontSize: 15 },
-  debugStrip: { position: "absolute", bottom: spacing.sm, left: spacing.md, right: spacing.md },
+  retryButtonText: { color: "#fff", fontFamily: childFonts.bold, fontSize: 18 },
+  debugStrip: { position: "absolute", left: spacing.md, right: spacing.md },
   debugText: { fontSize: 11, color: colors.textSecondary, textAlign: "center", fontFamily: "monospace" },
-  exitButton: {
-    position: "absolute",
-    top: spacing.md,
-    right: spacing.md,
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    zIndex: 10,
-  },
-  exitButtonText: { color: colors.textSecondary, fontWeight: "600", fontSize: 13 },
 });

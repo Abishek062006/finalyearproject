@@ -1,67 +1,71 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
+import React, { useCallback, useState } from "react";
+import { ActivityIndicator, Pressable } from "react-native";
+import { Card, ListRow, ListSection, Screen, spacing, Text, useTheme } from "../design";
 import { api, Child } from "../shared/api";
-import { authStore } from "../shared/authStore";
-import { colors, spacing } from "../shared/theme";
-import { Card, ErrorText, ScreenTitle, SecondaryButton } from "../shared/ui";
 
-export function EducatorChildListScreen({ onOpenProfile, onLogout }: { onOpenProfile: (childId: string) => void; onLogout: () => void }) {
+export function EducatorChildListScreen({ onOpenProfile, onOpenSettings }: { onOpenProfile: (childId: string) => void; onOpenSettings: () => void }) {
+  const { colors } = useTheme();
   const [children, setChildren] = useState<Child[] | null>(null);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
     try {
+      setError("");
       setChildren(await api.educatorListChildren());
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.headerRow}>
-        <ScreenTitle>Your students</ScreenTitle>
-        <SecondaryButton
-          title="Log out"
-          onPress={() => {
-            authStore.setToken(null);
-            onLogout();
-          }}
-        />
-      </View>
-
-      <ErrorText>{error}</ErrorText>
+    <Screen
+      title="Students"
+      rightAction={
+        <Pressable accessibilityRole="button" accessibilityLabel="Settings" hitSlop={12} onPress={onOpenSettings}>
+          {({ pressed }) => <Ionicons name="settings-outline" size={24} color={colors.tint} style={{ opacity: pressed ? 0.4 : 1 }} />}
+        </Pressable>
+      }
+    >
+      {!!error && (
+        <Text variant="footnote" tone="destructive" style={{ marginBottom: spacing.sm }}>
+          {error}
+        </Text>
+      )}
 
       {children === null ? (
-        <ActivityIndicator color={colors.primary} />
+        <ActivityIndicator color={colors.tint} style={{ marginTop: spacing.xl }} />
       ) : children.length === 0 ? (
-        <Card>
-          <Text style={styles.emptyText}>
-            No students yet. A parent needs to grant you access from their child's Privacy & camera settings screen,
-            using this account's email.
+        <Card style={{ alignItems: "center", paddingVertical: spacing.xl }}>
+          <Ionicons name="people-outline" size={44} color={colors.labelTertiary} />
+          <Text variant="title3" align="center" style={{ marginTop: spacing.sm }}>
+            No students yet
+          </Text>
+          <Text variant="subhead" tone="secondary" align="center" style={{ marginTop: spacing.xxs }}>
+            A parent grants you access from their child's Privacy settings, using this account's email.
           </Text>
         </Card>
       ) : (
-        children.map((child) => (
-          <Card key={child.id}>
-            <Text style={styles.nickname}>{child.nickname}</Text>
-            <Text style={styles.meta}>Born {child.birth_year_month}</Text>
-            <SecondaryButton title="View detailed profile" onPress={() => onOpenProfile(child.id)} />
-          </Card>
-        ))
+        <ListSection header="Linked students">
+          {children.map((child) => (
+            <ListRow
+              key={child.id}
+              title={child.nickname}
+              subtitle={`Born ${child.birth_year_month}`}
+              icon="person"
+              accessory="chevron"
+              onPress={() => onOpenProfile(child.id)}
+            />
+          ))}
+        </ListSection>
       )}
-    </ScrollView>
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { padding: spacing.lg, maxWidth: 560, width: "100%", alignSelf: "center" },
-  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  emptyText: { color: colors.textSecondary, fontSize: 15, lineHeight: 22 },
-  nickname: { fontSize: 20, fontWeight: "700", color: colors.textPrimary },
-  meta: { fontSize: 14, color: colors.textSecondary, marginBottom: spacing.sm },
-});

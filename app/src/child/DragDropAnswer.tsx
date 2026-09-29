@@ -5,7 +5,7 @@
  */
 import React, { useMemo, useRef } from "react";
 import { Animated, LayoutRectangle, PanResponder, StyleSheet, Text, View } from "react-native";
-import { colors, MIN_TOUCH_TARGET, radius, spacing, typography } from "../shared/theme";
+import { colors, MIN_TOUCH_TARGET, radius, spacing, typography, childFonts } from "../shared/theme";
 
 function shuffled<T>(arr: T[]): T[] {
   const copy = [...arr];
@@ -22,9 +22,9 @@ function DragTile({
   onDropped,
   disabled,
 }: {
-  value: number;
+  value: string | number;
   dropZone: React.MutableRefObject<LayoutRectangle | null>;
-  onDropped: (value: number) => void;
+  onDropped: (value: string | number) => void;
   disabled: boolean;
 }) {
   const pan = useRef(new Animated.ValueXY()).current;
@@ -65,8 +65,8 @@ export function DragDropAnswer({
   onChoose,
   disabled,
 }: {
-  choices: number[];
-  onChoose: (value: number) => void;
+  choices: (string | number)[];
+  onChoose: (value: string | number) => void;
   disabled: boolean;
 }) {
   // See TapAnswer.tsx: depend on values, not array reference, or tiles
@@ -106,14 +106,14 @@ const styles = StyleSheet.create({
     height: 96,
     borderRadius: radius.card,
     borderWidth: 3,
-    borderColor: colors.primary,
+    borderColor: colors.border,
     borderStyle: "dashed",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: spacing.lg,
-    backgroundColor: "#FFF1E4",
+    backgroundColor: colors.surfaceMuted,
   },
-  dropZoneLabel: { color: colors.primaryDark, fontSize: 18, fontWeight: "600" },
+  dropZoneLabel: { color: colors.textSecondary, fontSize: 18, fontFamily: childFonts.regular },
   tileRow: { flexDirection: "row", justifyContent: "center", gap: spacing.md },
   tile: {
     minWidth: MIN_TOUCH_TARGET,
@@ -123,5 +123,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  tileText: { color: "#fff", fontSize: typography.button, fontWeight: "700" },
+  tileText: { color: "#fff", fontSize: typography.button, fontFamily: childFonts.bold },
 });

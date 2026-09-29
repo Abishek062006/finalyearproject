@@ -4,25 +4,41 @@
  * The child app renders whatever ActivitySpec it is given and reports back —
  * it makes no adaptation decisions itself (docs/ARCHITECTURE.md §6).
  */
+import Constants from "expo-constants";
 import { Platform } from "react-native";
 import { authStore } from "./authStore";
 import { enqueueAnswer, flushQueue, newInteractionId, type AnswerPayload } from "./offlineQueue";
 
 /**
  * Dev-only base URL resolution:
- *  - web / iOS simulator: the dev machine's own localhost works
- *  - Android emulator: 10.0.2.2 is the special alias for the host machine
- *  - a real tablet on the same Wi-Fi: replace with your machine's LAN IP
+ *  - web / iOS simulator / Android emulator: the dev machine's own
+ *    "localhost" (or, for the Android emulator specifically, its 10.0.2.2
+ *    alias for the host machine) works, since those all run ON the dev
+ *    machine or route back to it.
+ *  - a REAL phone/tablet running this via Expo Go: "localhost" there means
+ *    the phone itself, not the dev machine, so it must hit the dev
+ *    machine's LAN IP instead. Metro already knows that IP — it's the same
+ *    host the phone just fetched this JS bundle from — so `hostUri` (from
+ *    expo-constants) reads it back rather than requiring a hardcoded IP.
  * This becomes a proper build-time config (EAS / app.json "extra") once we
  * leave the vertical-slice stage — see docs/PLAN.md Phase 2 note.
  */
-const DEV_HOST = Platform.OS === "android" ? "10.0.2.2" : "localhost";
+function resolveDevHost(): string {
+  const hostUri = Constants.expoConfig?.hostUri;
+  const host = hostUri?.split(":")[0];
+  if (host && host !== "localhost" && host !== "127.0.0.1") return host;
+  return Platform.OS === "android" ? "10.0.2.2" : "localhost";
+}
+
+const DEV_HOST = resolveDevHost();
 export const API_BASE = `http://${DEV_HOST}:8000`;
 
 export interface Child {
   id: string;
   nickname: string;
   birth_year_month: string;
+  companion_name: string | null;
+  companion_image_url: string | null;
 }
 
 export interface Session {
@@ -32,10 +48,15 @@ export interface Session {
   end_reason: string | null;
 }
 
+export type ActivityKind = "counting" | "letter_identify" | "matching" | "sequencing" | "intervention";
+
 export interface ActivityItem {
   id: string;
-  answer: { count: number };
-  distractors: number[];
+  // "counting" -> { count }; "letter_identify" / "matching" -> { label };
+  // "sequencing" -> { value, position }. Which shape applies is decided by
+  // ActivitySpec.activity_kind, not by inspecting the item itself.
+  answer: { count: number } | { label: string } | { value: number; position: number };
+  distractors: (number | string)[];
 }
 
 export type InterventionType = "mini_game" | "interest_injection" | "modality_switch" | "break";
@@ -49,8 +70,15 @@ export interface ActivitySpec {
   modality: "tap" | "drag_drop" | null;
   decision_types: Record<string, string | null>;
   theme: string;
-  prompt_text: string; // from the offline content bank (docs/PLAN.md Phase 7), not hardcoded
+  activity_kind: ActivityKind;
+  // For "letter_identify", may contain a "{label}" placeholder each item
+  // fills in with its own target letter (content/generator's
+  // identify_prompt_template) — from the offline content bank
+  // (docs/PLAN.md Phase 7), not hardcoded.
+  prompt_text: string;
   encouragement: string[];
+  guide_name: string;
+  companion_image_url: string | null; // set only when the child has a parent-chosen companion (docs/PLAN.md UX-overhaul Phase C)
   item_set_id: string | null;
   items: ActivityItem[];
   is_intervention: boolean;
@@ -193,6 +221,19 @@ export interface LockState {
   allow: boolean;
 }
 
+// ---- Companion (docs/PLAN.md UX-overhaul Phase C) ----
+
+export interface CompanionCandidate {
+  image_url: string;
+  source_title: string;
+  license: string;
+}
+
+export interface CompanionResult {
+  companion_name: string;
+  companion_image_url: string;
+}
+
 export const api = {
   quickstartChild: () => request<Child>("/dev/quickstart", { method: "POST" }),
 
@@ -235,6 +276,18 @@ export const api = {
 
   withdrawAndDeleteChild: (childId: string) =>
     request<{ deleted: boolean }>(`/parent/children/${childId}`, { method: "DELETE" }),
+
+  searchCompanion: (childId: string, query: string) =>
+    request<CompanionCandidate[]>(`/parent/children/${childId}/companion/search`, {
+      method: "POST",
+      body: JSON.stringify({ query }),
+    }),
+
+  confirmCompanion: (childId: string, query: string, imageUrl: string, sourceTitle: string) =>
+    request<CompanionResult>(`/parent/children/${childId}/companion/confirm`, {
+      method: "POST",
+      body: JSON.stringify({ query, image_url: imageUrl, source_title: sourceTitle }),
+    }),
 
   linkEducator: (childId: string, educatorEmail: string) =>
     request<EducatorLinkInfo>(`/parent/children/${childId}/educators`, {

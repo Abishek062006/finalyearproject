@@ -6,28 +6,30 @@
  * renders whatever `intervention_type` it's given and reports back when done.
  */
 import React, { useEffect, useRef, useState } from "react";
-import { Animated, PanResponder, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Image, ImageSourcePropType, PanResponder, Pressable, StyleSheet, Text, View } from "react-native";
 import { InterventionType } from "../shared/api";
-import { colors, MIN_TOUCH_TARGET, radius, spacing, THEME_ASSETS, ThemeCode, typography } from "../shared/theme";
+import { colors, MIN_TOUCH_TARGET, radius, spacing, typography, childFonts } from "../shared/theme";
 
 const COPY: Record<InterventionType, { title: string; prompt: string; buttonLabel: string }> = {
-  mini_game: { title: "Quick game!", prompt: "Catch the stars!", buttonLabel: "Caught them all!" },
-  interest_injection: { title: "", prompt: "needs a high five!", buttonLabel: "High five! 🙌" },
-  modality_switch: { title: "Quick one!", prompt: "Drag the star over!", buttonLabel: "" },
+  mini_game: { title: "Quick game!", prompt: "Tap all three!", buttonLabel: "Caught them all!" },
+  interest_injection: { title: "", prompt: "needs a high five!", buttonLabel: "High five!" },
+  modality_switch: { title: "Quick one!", prompt: "Drag the circle over!", buttonLabel: "" },
   break: { title: "Quick breather", prompt: "Take a breath with me", buttonLabel: "I'm ready!" },
 };
 
 export function InterventionScreen({
   type,
-  theme,
+  guideName,
+  imageSource,
   onDone,
 }: {
   type: InterventionType;
-  theme: ThemeCode;
+  guideName: string;
+  imageSource: ImageSourcePropType;
   onDone: () => void;
 }) {
   if (type === "modality_switch") {
-    return <DragToFinish theme={theme} onDone={onDone} />;
+    return <DragToFinish imageSource={imageSource} onDone={onDone} />;
   }
   if (type === "mini_game") {
     return <CatchStars onDone={onDone} />;
@@ -35,7 +37,7 @@ export function InterventionScreen({
   if (type === "break") {
     return <CalmBreath onDone={onDone} />;
   }
-  return <InterestGreeting theme={theme} onDone={onDone} />;
+  return <InterestGreeting guideName={guideName} imageSource={imageSource} onDone={onDone} />;
 }
 
 // ---- mini_game: tap all 3 stars ----
@@ -58,22 +60,27 @@ function CatchStars({ onDone }: { onDone: () => void }) {
             key={i}
             disabled={isCaught}
             onPress={() => setCaught((prev) => prev.map((v, j) => (j === i ? true : v)))}
-            style={styles.starButton}
-          >
-            <Text style={styles.starEmoji}>{isCaught ? "✨" : "⭐"}</Text>
-          </Pressable>
+            style={[styles.starButton, isCaught && styles.starButtonCaught]}
+          />
         ))}
       </View>
     </Screen>
   );
 }
 
-// ---- interest_injection: themed character greeting ----
-function InterestGreeting({ theme, onDone }: { theme: ThemeCode; onDone: () => void }) {
-  const asset = THEME_ASSETS[theme];
+// ---- interest_injection: guide character greeting ----
+function InterestGreeting({
+  guideName,
+  imageSource,
+  onDone,
+}: {
+  guideName: string;
+  imageSource: ImageSourcePropType;
+  onDone: () => void;
+}) {
   return (
-    <Screen title={`${asset.guideName} ${COPY.interest_injection.prompt}`} prompt="">
-      <Text style={styles.bigEmoji}>{asset.emoji}</Text>
+    <Screen title={`${guideName} ${COPY.interest_injection.prompt}`} prompt="">
+      <Image source={imageSource} style={styles.bigPhoto} />
       <PrimaryAction label={COPY.interest_injection.buttonLabel} onPress={onDone} />
     </Screen>
   );
@@ -108,11 +115,10 @@ function CalmBreath({ onDone }: { onDone: () => void }) {
 }
 
 // ---- modality_switch: drag the star into the target ----
-function DragToFinish({ theme, onDone }: { theme: ThemeCode; onDone: () => void }) {
+function DragToFinish({ imageSource, onDone }: { imageSource: ImageSourcePropType; onDone: () => void }) {
   const pan = useRef(new Animated.ValueXY()).current;
   const zoneRef = useRef<View>(null);
   const zoneRect = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
-  const asset = THEME_ASSETS[theme];
 
   const panResponder = useRef(
     PanResponder.create({
@@ -138,11 +144,9 @@ function DragToFinish({ theme, onDone }: { theme: ThemeCode; onDone: () => void 
         style={styles.dropZone}
         onLayout={() => zoneRef.current?.measureInWindow((x, y, width, height) => (zoneRect.current = { x, y, width, height }))}
       >
-        <Text style={styles.dropZoneEmoji}>{asset.emoji}</Text>
+        <Image source={imageSource} style={styles.dropZonePhoto} />
       </View>
-      <Animated.View {...panResponder.panHandlers} style={[styles.star, { transform: pan.getTranslateTransform() }]}>
-        <Text style={styles.starEmoji}>⭐</Text>
-      </Animated.View>
+      <Animated.View {...panResponder.panHandlers} style={[styles.star, { transform: pan.getTranslateTransform() }]} />
     </Screen>
   );
 }
@@ -167,19 +171,41 @@ function PrimaryAction({ label, onPress }: { label: string; onPress: () => void 
 
 const styles = StyleSheet.create({
   container: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background, padding: spacing.lg },
-  title: { fontSize: typography.prompt * 0.6, fontWeight: "800", color: colors.textPrimary, marginBottom: spacing.sm, textAlign: "center" },
+  title: { fontSize: typography.prompt * 0.6, fontFamily: childFonts.bold, color: colors.textPrimary, marginBottom: spacing.sm, textAlign: "center" },
   prompt: { fontSize: 20, color: colors.textSecondary, marginBottom: spacing.lg, textAlign: "center" },
-  bigEmoji: { fontSize: 96, marginBottom: spacing.lg },
+  bigPhoto: { width: 160, height: 160, borderRadius: 36, marginBottom: spacing.lg },
   starRow: { flexDirection: "row", gap: spacing.lg },
-  starButton: { width: MIN_TOUCH_TARGET, height: MIN_TOUCH_TARGET, alignItems: "center", justifyContent: "center" },
-  starEmoji: { fontSize: 48 },
+  starButton: {
+    width: MIN_TOUCH_TARGET,
+    height: MIN_TOUCH_TARGET,
+    borderRadius: MIN_TOUCH_TARGET / 2,
+    borderWidth: 3,
+    borderColor: colors.primary,
+  },
+  starButtonCaught: { backgroundColor: colors.primary },
   actionButton: { backgroundColor: colors.success, borderRadius: radius.button, paddingVertical: 14, paddingHorizontal: 32, marginTop: spacing.md },
-  actionButtonText: { color: "#fff", fontWeight: "800", fontSize: 18 },
+  actionButtonText: { color: "#fff", fontFamily: childFonts.bold, fontSize: 18 },
   breathCircle: { width: 100, height: 100, borderRadius: 50, backgroundColor: colors.primary, marginBottom: spacing.lg },
   dropZone: {
-    width: 140, height: 140, borderRadius: 70, borderWidth: 3, borderColor: colors.primary, borderStyle: "dashed",
-    alignItems: "center", justifyContent: "center", marginBottom: spacing.xl, backgroundColor: "#FFF1E4",
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    borderWidth: 3,
+    borderColor: colors.border,
+    borderStyle: "dashed",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: spacing.xl,
+    backgroundColor: colors.surfaceMuted,
+    overflow: "hidden",
   },
-  dropZoneEmoji: { fontSize: 56 },
-  star: { position: "absolute", bottom: spacing.xl, width: MIN_TOUCH_TARGET, height: MIN_TOUCH_TARGET, alignItems: "center", justifyContent: "center" },
+  dropZonePhoto: { width: "100%", height: "100%" },
+  star: {
+    position: "absolute",
+    bottom: spacing.xl,
+    width: MIN_TOUCH_TARGET,
+    height: MIN_TOUCH_TARGET,
+    borderRadius: MIN_TOUCH_TARGET / 2,
+    backgroundColor: colors.primary,
+  },
 });

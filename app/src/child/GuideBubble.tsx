@@ -1,18 +1,29 @@
 /**
  * The companion guide character (README §8). Introduces activities,
  * encourages, celebrates — never makes medical or psychological claims.
+ *
+ * Renders whatever image it's given — the caller decides whether that's the
+ * child's own parent-chosen companion or the theme's built-in character
+ * (docs/PLAN.md UX-overhaul Phase C) — this component doesn't need to know
+ * which.
  */
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
-import { colors, spacing, typography } from "../shared/theme";
-import { ThemeCode, THEME_ASSETS } from "../shared/theme";
+import { Image, ImageSourcePropType, StyleSheet, Text, View } from "react-native";
+import { colors, spacing, typography, childFonts } from "../shared/theme";
 
-export function GuideBubble({ theme, text }: { theme: ThemeCode; text: string }) {
-  const asset = THEME_ASSETS[theme];
+export function GuideBubble({
+  imageSource,
+  accentColor,
+  text,
+}: {
+  imageSource: ImageSourcePropType;
+  accentColor: string;
+  text: string;
+}) {
   return (
     <View style={styles.row}>
-      <View style={[styles.avatar, { backgroundColor: asset.accent }]}>
-        <Text style={styles.avatarEmoji}>{asset.emoji}</Text>
+      <View style={[styles.avatar, { borderColor: accentColor }]}>
+        <Image source={imageSource} style={styles.avatarImage} />
       </View>
       <View style={styles.bubble}>
         <Text style={styles.bubbleText}>{text}</Text>
@@ -27,11 +38,11 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    alignItems: "center",
-    justifyContent: "center",
+    borderWidth: 2,
+    overflow: "hidden",
     marginRight: spacing.sm,
   },
-  avatarEmoji: { fontSize: 36 },
+  avatarImage: { width: "100%", height: "100%" },
   bubble: {
     flex: 1,
     backgroundColor: colors.surface,
@@ -44,5 +55,5 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
   },
-  bubbleText: { fontSize: typography.guide, color: colors.textPrimary, fontWeight: "600" },
+  bubbleText: { fontSize: typography.guide, color: colors.textPrimary, fontFamily: childFonts.regular },
 });

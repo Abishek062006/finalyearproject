@@ -4,7 +4,7 @@
  */
 import React, { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { colors, MIN_TOUCH_TARGET, radius, spacing, typography } from "../shared/theme";
+import { colors, MIN_TOUCH_TARGET, radius, spacing, typography, childFonts } from "../shared/theme";
 
 function shuffled<T>(arr: T[]): T[] {
   const copy = [...arr];
@@ -20,8 +20,8 @@ export function TapAnswer({
   onChoose,
   disabled,
 }: {
-  choices: number[];
-  onChoose: (value: number) => void;
+  choices: (string | number)[];
+  onChoose: (value: string | number) => void;
   disabled: boolean;
 }) {
   // Depend on the VALUES, not the array reference — `choices` is a fresh
@@ -57,5 +57,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   buttonPressed: { backgroundColor: colors.primaryDark },
-  buttonText: { color: "#fff", fontSize: typography.button, fontWeight: "700" },
+  buttonText: { color: "#fff", fontSize: typography.button, fontFamily: childFonts.bold },
 });
