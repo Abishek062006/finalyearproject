@@ -1,13 +1,13 @@
 """
-docs/PLAN.md UX-overhaul Phase C: once a child has a parent-chosen companion,
-it becomes the guide character on every activity — but must NEVER replace
-the theme used for the actual lesson content (counting/matching visuals stay
-accurate to whatever prompt_text says), and must NEVER touch the theme-axis
-randomized comparison (dino/space/ocean/cars stay the only arms in that
-experiment). These tests pin both boundaries down explicitly.
+The child's buddy (plan Phase 2) and companion photo (Phase C): one constant
+friend — default "Pip", renamable — speaks every activity, whichever of the
+four themes the randomized experiment picked; the parent-chosen interest photo
+rides along. Neither may ever change which theme the lesson CONTENT uses.
 """
 from app.models.identity import Child
-from app.services import educator_service, session_service
+from app.services import educator_service, parent_service, session_service
+
+BUILT_IN_GUIDES = ("Rex", "Astro", "Splash", "Turbo")
 
 
 def _set_fake_companion(db, child_id, name="Trains"):
@@ -18,55 +18,61 @@ def _set_fake_companion(db, child_id, name="Trains"):
     db.commit()
 
 
-def test_a_childs_companion_becomes_the_guide_name_and_image(seeded_db, child_id):
+def _next(db, child_id):
+    session = session_service.start_session(db, child_id)
+    return session_service.next_activity(db, session.id)
+
+
+def test_the_guide_is_always_the_childs_buddy_never_a_theme_character(seeded_db, child_id):
+    for _ in range(4):
+        activity = _next(seeded_db, child_id)
+        assert activity.spec["guide_name"] == "Pip"
+        assert not any(name in activity.spec["prompt_text"] for name in BUILT_IN_GUIDES)
+        assert not any(name in line for line in activity.spec["encouragement"] for name in BUILT_IN_GUIDES)
+
+
+def test_the_companion_photo_rides_along_with_the_buddy(seeded_db, child_id):
     _set_fake_companion(seeded_db, child_id)
-
-    session = session_service.start_session(seeded_db, child_id)
-    activity = session_service.next_activity(seeded_db, session.id)
-
-    assert activity.spec["guide_name"] == "Trains"
+    activity = _next(seeded_db, child_id)
+    assert activity.spec["guide_name"] == "Pip"
     assert activity.spec["companion_image_url"] == f"/media/companions/{child_id}.jpg"
 
 
-def test_without_a_companion_the_guide_name_falls_back_to_the_themes_own_character(seeded_db, child_id):
-    session = session_service.start_session(seeded_db, child_id)
-    activity = session_service.next_activity(seeded_db, session.id)
-
-    assert activity.spec["guide_name"] in ("Rex", "Astro", "Splash", "Turbo")
-    assert activity.spec["companion_image_url"] is None
+def test_without_a_companion_there_is_no_companion_photo(seeded_db, child_id):
+    assert _next(seeded_db, child_id).spec["companion_image_url"] is None
 
 
 def test_a_companion_never_changes_which_theme_the_lesson_content_uses(seeded_db, child_id):
-    """The counting/matching visuals must stay accurate to their own theme
-    (a "race cars" prompt must show cars, not a train) — the companion only
-    ever replaces the decorative guide, never the content-bearing theme."""
+    """Counting/matching visuals must stay accurate to their own theme (a
+    "race cars" prompt must show cars, not a train)."""
     educator_service.assign_topic(seeded_db, child_id, "num_1_5", user_id="test-educator")
     _set_fake_companion(seeded_db, child_id)
-
-    session = session_service.start_session(seeded_db, child_id)
-    activity = session_service.next_activity(seeded_db, session.id)
-
+    activity = _next(seeded_db, child_id)
     assert activity.spec["theme"] in ("dino", "space", "ocean", "cars")
-    assert activity.spec["guide_name"] == "Trains"  # guide is the companion...
-    assert "trains" not in activity.spec["prompt_text"].lower()  # ...but content prompt stays theme-accurate
+    assert "trains" not in activity.spec["prompt_text"].lower()
 
 
-def test_a_companion_replaces_its_own_name_inside_prompts_that_speak_for_the_guide(seeded_db, child_id):
-    """Regression test: prompt_text for kinds like "matching" is pre-baked
-    with the THEME's own guide name literally in it (e.g. "Help Turbo match
-    them all!") — once a companion is set, that name must be swapped too, or
-    the avatar (now the companion's photo) and the words attributed to it
-    would name two different characters."""
+def test_prompts_that_speak_for_the_guide_use_the_buddys_name(seeded_db, child_id):
+    """Regression: matching prompts are pre-baked with a theme guide's name
+    ("Help Turbo match them all!") — the words must name the friend actually
+    on screen."""
     educator_service.assign_topic(seeded_db, child_id, "letters_a_e_match", user_id="test-educator")
-    session = session_service.start_session(seeded_db, child_id)
-    activity_before = session_service.next_activity(seeded_db, session.id)
-    builtin_name = activity_before.spec["guide_name"]
-    assert builtin_name in activity_before.spec["prompt_text"]  # sanity: the un-companioned prompt really does say it
+    assert "Pip" in _next(seeded_db, child_id).spec["prompt_text"]
 
-    _set_fake_companion(seeded_db, child_id)
-    session2 = session_service.start_session(seeded_db, child_id)
-    activity_after = session_service.next_activity(seeded_db, session2.id)
 
-    assert activity_after.spec["guide_name"] == "Trains"
-    assert "Trains" in activity_after.spec["prompt_text"]
-    assert builtin_name not in activity_after.spec["prompt_text"]
+def test_renaming_the_buddy_changes_what_it_is_called_everywhere(seeded_db, child_id):
+    educator_service.assign_topic(seeded_db, child_id, "letters_a_e_match", user_id="test-educator")
+    parent_service.update_child_profile(seeded_db, child_id, {"buddy_name": "bubbles"})
+    activity = _next(seeded_db, child_id)
+    assert activity.spec["guide_name"] == "Bubbles"
+    assert "Bubbles" in activity.spec["prompt_text"]
+
+    parent_service.update_child_profile(seeded_db, child_id, {"buddy_name": ""})  # reset
+    assert _next(seeded_db, child_id).spec["guide_name"] == "Pip"
+
+
+def test_an_unsafe_buddy_name_is_rejected(seeded_db, child_id):
+    import pytest
+
+    with pytest.raises(ValueError):
+        parent_service.update_child_profile(seeded_db, child_id, {"buddy_name": "kill"})

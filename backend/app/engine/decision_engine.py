@@ -63,7 +63,7 @@ class ActivitySpec:
     activity_kind: str  # "counting" | "letter_identify" | ... — which content shape `items` uses
     prompt_text: str  # may contain a "{label}" placeholder the frontend fills in per-item (e.g. letter_identify)
     encouragement: list[str]
-    guide_name: str  # the theme's built-in guide, UNLESS the child has a parent-chosen companion (docs/PLAN.md UX-overhaul Phase C)
+    guide_name: str  # the child's one constant on-screen friend (default "Pip") — never a per-theme character (plan Phase 2)
     companion_image_url: str | None  # set only when the child has a companion — the frontend falls back to the theme's own bundled image otherwise
     item_set_id: str | None
     items: list[dict]
@@ -193,11 +193,10 @@ class DecisionEngine:
             )
             intervention_theme_code = self._current_best_theme_code(child_id)
             intervention_builtin_guide_name = self._guide_name_for_theme_code(intervention_theme_code)
-            intervention_encouragement = content_bank.get_theme_content(intervention_theme_code)["encouragement"]
-            if child.companion_name:
-                intervention_encouragement = [
-                    line.replace(intervention_builtin_guide_name, child.companion_name) for line in intervention_encouragement
-                ]
+            intervention_encouragement = [
+                line.replace(intervention_builtin_guide_name, child.buddy)
+                for line in content_bank.get_theme_content(intervention_theme_code)["encouragement"]
+            ]
             return ActivitySpec(
                 topic_id=topic_choice.topic_id,
                 topic_code=topic_choice.topic_code,
@@ -210,7 +209,7 @@ class DecisionEngine:
                 activity_kind="intervention",
                 prompt_text=content_bank.get_theme_content(intervention_theme_code)["counting_prompt"],
                 encouragement=intervention_encouragement,
-                guide_name=child.companion_name or intervention_builtin_guide_name,
+                guide_name=child.buddy,
                 companion_image_url=child.companion_image_url,
                 item_set_id=None,
                 items=[],
@@ -303,16 +302,15 @@ class DecisionEngine:
 
         prompt_text = content.get(prompt_field) or content["counting_prompt"]
         encouragement = content["encouragement"]
+        # The pre-baked content bank text names each THEME's own guide ("Turbo
+        # says, find the letter B!"). The child only ever sees one friend (their
+        # buddy, drawn on screen and speaking every prompt), so that name is
+        # swapped in — otherwise the character talking and the name in the
+        # words would disagree, a literal-language mismatch that matters for
+        # this app's audience (README §1/§22).
         builtin_guide_name = self._guide_name_for_theme_code(render_theme_code)
-        if child.companion_name:
-            # The pre-baked content bank text literally names the theme's own
-            # guide ("Turbo says, find the letter B!") — swap it for the
-            # companion's name too, or the avatar (now the companion's photo)
-            # and the words attributed to it would name two different
-            # characters, a literal-language mismatch that matters a lot for
-            # this app's audience (README §1/§22).
-            prompt_text = prompt_text.replace(builtin_guide_name, child.companion_name)
-            encouragement = [line.replace(builtin_guide_name, child.companion_name) for line in encouragement]
+        prompt_text = prompt_text.replace(builtin_guide_name, child.buddy)
+        encouragement = [line.replace(builtin_guide_name, child.buddy) for line in encouragement]
 
         return ActivitySpec(
             topic_id=topic_choice.topic_id,
@@ -326,11 +324,10 @@ class DecisionEngine:
             activity_kind=activity_kind,
             prompt_text=prompt_text,
             encouragement=encouragement,
-            # The companion only ever replaces the GUIDE character (decorative,
-            # not content-bearing) — never the theme used for counting/matching
-            # visuals, which must stay accurate to what prompt_text says (a
-            # prompt about "race cars" must show race cars, not a teddy bear).
-            guide_name=child.companion_name or builtin_guide_name,
+            # The buddy and the companion photo are decorative, never the theme
+            # used for counting/matching visuals, which must stay accurate to
+            # what prompt_text says ("race cars" must show race cars).
+            guide_name=child.buddy,
             companion_image_url=child.companion_image_url,
             item_set_id=item_set.id if item_set else None,
             items=items,

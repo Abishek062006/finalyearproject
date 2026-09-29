@@ -13,6 +13,9 @@ from app.db import Base
 from app.models.common import TimestampMixin, UUIDPKMixin, new_uuid
 
 
+DEFAULT_BUDDY_NAME = "Pip"
+
+
 class User(Base, UUIDPKMixin, TimestampMixin):
     __tablename__ = "users"
 
@@ -46,11 +49,19 @@ class Child(Base, UUIDPKMixin, TimestampMixin):
     communication_level: Mapped[str | None] = mapped_column(String(20), nullable=True)  # sentences|words|gestures|non_speaking
     sensory: Mapped[list] = mapped_column(JSON, default=list)  # subset of sounds|lights|motion|timers
     goals: Mapped[list] = mapped_column(JSON, default=list)  # curriculum Domain codes the parent wants to focus on
+    # The on-screen friend's name (plan Phase 2). One constant character per
+    # child across every theme and session — predictability matters more to
+    # autistic children than variety. Null means the default, "Pip".
+    buddy_name: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     guardianships: Mapped[list["Guardianship"]] = relationship(back_populates="child")
     educator_links: Mapped[list["EducatorLink"]] = relationship(back_populates="child")
     consents: Mapped[list["Consent"]] = relationship(back_populates="child")
     interests: Mapped[list["ChildInterest"]] = relationship(back_populates="child", order_by="ChildInterest.created_at")
+
+    @property
+    def buddy(self) -> str:
+        return self.buddy_name or DEFAULT_BUDDY_NAME
 
     @property
     def companion_image_url(self) -> str | None:

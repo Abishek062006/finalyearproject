@@ -11,6 +11,14 @@ from app.models.curriculum import Item, ItemSet, Topic
 from app.services import content_bank, educator_service, session_service
 
 
+def _as_spoken_by_buddy(text: str) -> str:
+    """The content bank names each theme's own guide; the child's buddy (Pip)
+    speaks every prompt instead (plan Phase 2)."""
+    for guide in ("Rex", "Astro", "Splash", "Turbo"):
+        text = text.replace(guide, "Pip")
+    return text
+
+
 def test_matching_topic_is_seeded_with_the_same_letters_as_letter_identify(seeded_db):
     topic = seeded_db.query(Topic).filter_by(code="letters_a_e_match").one()
     sets = seeded_db.query(ItemSet).filter_by(topic_id=topic.id).all()
@@ -54,7 +62,7 @@ def test_decision_engine_returns_matching_activity_kind_and_prompt(seeded_db, ch
     assert len(activity.spec["items"]) == 5
     assert all("label" in item["answer"] for item in activity.spec["items"])
 
-    expected = content_bank.get_theme_content(activity.spec["theme"])["match_prompt"]
+    expected = _as_spoken_by_buddy(content_bank.get_theme_content(activity.spec["theme"])["match_prompt"])
     assert activity.spec["prompt_text"] == expected
     assert "{" not in activity.spec["prompt_text"]  # whole-board prompt, no per-item placeholder
 
@@ -70,7 +78,7 @@ def test_decision_engine_returns_sequencing_activity_kind_and_prompt(seeded_db, 
     assert all("value" in item["answer"] and "position" in item["answer"] for item in activity.spec["items"])
     assert all(item["distractors"] == [] for item in activity.spec["items"])
 
-    expected = content_bank.get_theme_content(activity.spec["theme"])["sequence_prompt"]
+    expected = _as_spoken_by_buddy(content_bank.get_theme_content(activity.spec["theme"])["sequence_prompt"])
     assert activity.spec["prompt_text"] == expected
     assert "{" not in activity.spec["prompt_text"]
 

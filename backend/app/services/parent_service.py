@@ -100,6 +100,14 @@ def update_child_profile(db: DBSession, child_id: str, patch: dict) -> Child:
         child.sensory = sorted(set(patch["sensory"]))
     if patch.get("goals") is not None:
         child.goals = list(dict.fromkeys(patch["goals"]))
+    if patch.get("buddy_name") is not None:
+        name = patch["buddy_name"].strip()
+        if name:
+            from app.services.companion_service import validate_query
+
+            if validate_query(name):
+                raise ValueError("The friend's name should be a short, simple word.")
+        child.buddy_name = name.title() if name else None
     db.commit()
     db.refresh(child)
     return child

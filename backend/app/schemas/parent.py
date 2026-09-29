@@ -32,6 +32,7 @@ class ChildOut(BaseModel):
     sensory: list[str] = []
     goals: list[str] = []
     interests: list[ChildInterestOut] = []
+    buddy: str = "Pip"  # the on-screen friend's name (Child.buddy)
 
     model_config = {"from_attributes": True}
 
@@ -58,6 +59,7 @@ class ChildProfilePatch(BaseModel):
     communication_level: str | None = None
     sensory: list[str] | None = None
     goals: list[str] | None = None
+    buddy_name: str | None = Field(default=None, max_length=20)  # "" resets to the default "Pip"
 
 
 class AddInterestRequest(BaseModel):
