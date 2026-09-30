@@ -1,12 +1,24 @@
 import Constants from "expo-constants";
-import React from "react";
-import { Platform } from "react-native";
-import { ListRow, ListSection, ListSwitch, playSound, Screen, settingsStore, useSettings } from "../design";
+import React, { useState } from "react";
+import { Platform, View } from "react-native";
+import { ListRow, ListSection, ListSwitch, playSound, Screen, settingsStore, spacing, useSettings, WheelPicker } from "../design";
 import { useAuth } from "./AuthProvider";
+import { formatTime, remindersSupported, saveReminder, useReminder } from "./reminders";
+
+const HOURS = Array.from({ length: 24 }, (_, h) => ({ value: h, label: formatTime(h, 0).replace(/:00/, "") }));
+const MINUTES = [0, 15, 30, 45].map((m) => ({ value: m, label: String(m).padStart(2, "0") }));
 
 export function SettingsScreen({ onBack }: { onBack: () => void }) {
   const { user, signOut } = useAuth();
   const settings = useSettings();
+  const [reminder, setReminder] = useReminder();
+  const [picking, setPicking] = useState(false);
+  const [denied, setDenied] = useState(false);
+
+  async function updateReminder(next: NonNullable<typeof reminder>) {
+    setReminder(next);
+    setDenied(!(await saveReminder(next)));
+  }
 
   return (
     <Screen title="Settings" onBack={onBack}>
@@ -44,6 +56,35 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
           />
         )}
       </ListSection>
+
+      {user?.role !== "educator" && reminder && (
+        <ListSection
+          header="Session reminder"
+          footer={
+            !remindersSupported
+              ? "Reminders work in the phone and tablet app."
+              : denied
+                ? "Notifications are turned off for AURA. Turn them on in your device's Settings."
+                : "A gentle nudge at the same time each day. Short, regular sessions at a predictable time work best."
+          }
+        >
+          <ListRow
+            title="Remind me daily"
+            icon="notifications"
+            iconColor="#FF3B30"
+            accessory={<ListSwitch value={reminder.enabled} onValueChange={(v) => updateReminder({ ...reminder, enabled: v })} />}
+          />
+          {reminder.enabled && (
+            <ListRow title="Time" icon="time" iconColor="#FF9500" value={formatTime(reminder.hour, reminder.minute)} accessory="chevron" onPress={() => setPicking((p) => !p)} />
+          )}
+          {reminder.enabled && picking && (
+            <View style={{ flexDirection: "row", justifyContent: "center", gap: spacing.md, paddingVertical: spacing.sm }}>
+              <WheelPicker items={HOURS} value={reminder.hour} onChange={(h) => updateReminder({ ...reminder, hour: h })} accessibilityLabel="Hour" />
+              <WheelPicker items={MINUTES} value={reminder.minute} onChange={(m) => updateReminder({ ...reminder, minute: m })} accessibilityLabel="Minute" />
+            </View>
+          )}
+        </ListSection>
+      )}
 
       {__DEV__ && (
         <ListSection

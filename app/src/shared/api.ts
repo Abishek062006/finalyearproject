@@ -71,6 +71,104 @@ export interface ScheduleStep {
   icon: ScheduleIcon;
 }
 
+// ---- Grown-ups' care features (plan Phase 6) ----
+
+export interface DailyPoint {
+  day: string; // YYYY-MM-DD
+  minutes: number;
+  activities: number;
+  answers: number;
+  accuracy_percent: number | null;
+  breaks: number;
+}
+
+export interface SessionRecord {
+  id: string;
+  started_at: string;
+  minutes: number;
+  activities: number;
+  answers: number;
+  accuracy_percent: number | null;
+  breaks: number;
+  end_reason: string | null;
+  topics: string[];
+}
+
+export interface WhatWorks {
+  axis_code: string;
+  question: string;
+  answer: string;
+  detail: string;
+  confirmed: boolean;
+  trials: number;
+}
+
+export interface LearningGoal {
+  id: string;
+  topic_code: string;
+  topic_label: string;
+  statement: string;
+  target_accuracy: number;
+  target_sessions: number;
+  status: "active" | "met" | "paused";
+  sessions_in_a_row: number;
+  recent_accuracies: number[];
+  created_at: string;
+  met_at: string | null;
+}
+
+export interface SleepInsight {
+  text: string;
+  short_sleep_accuracy: number;
+  long_sleep_accuracy: number;
+}
+
+export interface CareProgress {
+  daily: DailyPoint[];
+  sessions: SessionRecord[];
+  what_works: WhatWorks[];
+  goals: LearningGoal[];
+  sleep_insight: SleepInsight | null;
+}
+
+export const JOURNAL_TAGS: { code: string; label: string }[] = [
+  { code: "good_day", label: "Good day" },
+  { code: "tired", label: "Tired" },
+  { code: "meltdown", label: "Meltdown" },
+  { code: "shutdown", label: "Shutdown" },
+  { code: "sensory_overload", label: "Sensory overload" },
+  { code: "change_in_routine", label: "Change in routine" },
+  { code: "social_win", label: "Social win" },
+  { code: "new_word", label: "New word" },
+  { code: "new_food", label: "Tried new food" },
+  { code: "poor_appetite", label: "Poor appetite" },
+  { code: "unwell", label: "Unwell" },
+  { code: "medication_change", label: "Medication change" },
+];
+
+export interface JournalEntry {
+  id: string;
+  day: string;
+  sleep_hours: number | null;
+  mood: number | null; // 1-5
+  tags: string[];
+  note: string;
+}
+
+export interface CareNote {
+  id: string;
+  author_name: string;
+  author_role: "parent" | "educator";
+  text: string;
+  created_at: string;
+}
+
+export interface CareTopic {
+  code: string;
+  label: string;
+  domain: string;
+}
+
 /** What the child tells us directly (plan Phase 4). */
 export type SignalKind = "break" | "help" | "all_done" | "feeling" | "talk";
 export type Feeling = "green" | "blue" | "yellow" | "red";
@@ -270,6 +368,8 @@ export interface ArmEvidence {
   label: string;
   trials: number;
   accuracy_percent: number;
+  ci_low_percent: number; // 95% credible interval of the estimate
+  ci_high_percent: number;
   is_current_winner: boolean;
 }
 
@@ -432,6 +532,20 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+
+  careProgress: (childId: string, days = 14) => request<CareProgress>(`/care/children/${childId}/progress?days=${days}`),
+  careTopics: (childId: string) => request<CareTopic[]>(`/care/children/${childId}/topics`),
+  journal: (childId: string) => request<JournalEntry[]>(`/care/children/${childId}/journal`),
+  saveJournal: (childId: string, entry: Omit<JournalEntry, "id">) =>
+    request<JournalEntry>(`/care/children/${childId}/journal`, { method: "PUT", body: JSON.stringify(entry) }),
+  deleteJournal: (childId: string, entryId: string) => request(`/care/children/${childId}/journal/${entryId}`, { method: "DELETE" }),
+  goals: (childId: string) => request<LearningGoal[]>(`/care/children/${childId}/goals`),
+  addGoal: (childId: string, goal: { topic_code: string; target_accuracy: number; target_sessions: number; statement?: string }) =>
+    request<LearningGoal>(`/care/children/${childId}/goals`, { method: "POST", body: JSON.stringify(goal) }),
+  setGoalStatus: (childId: string, goalId: string, status: "active" | "paused") =>
+    request<LearningGoal>(`/care/children/${childId}/goals/${goalId}`, { method: "PATCH", body: JSON.stringify({ status }) }),
+  notes: (childId: string) => request<CareNote[]>(`/care/children/${childId}/notes`),
+  addNote: (childId: string, text: string) => request<CareNote>(`/care/children/${childId}/notes`, { method: "POST", body: JSON.stringify({ text }) }),
 
   endSession: (sessionId: string, endReason: "completed" | "child_all_done" | "grown_up" = "completed") =>
     request<Session>(`/sessions/${sessionId}/end`, { method: "POST", body: JSON.stringify({ end_reason: endReason }) }),
