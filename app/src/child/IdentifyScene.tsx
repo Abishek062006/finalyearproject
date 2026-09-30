@@ -1,11 +1,11 @@
 /**
  * Renders the themed scene for a "letter_identify" item — a single
- * decorative guide photo plus the target letter, unlike CountingScene's
+ * decorative guide photo plus the target letter, unlike the counting basket's
  * repeated-photo counting visual (there is nothing to count here). Also
  * reused generically as the banner for whole-board activities (matching,
  * sequencing), since its job — guide photo + a fixed prompt — is the same.
  *
- * Decorative, not content-bearing (unlike CountingScene's photo, which must
+ * Decorative, not content-bearing (unlike the counting basket's photo, which must
  * stay theme-accurate) — so this always renders whichever image the caller
  * resolved as the "who's talking" character: the child's own companion when
  * they have one, the theme's own image otherwise (docs/PLAN.md UX-overhaul

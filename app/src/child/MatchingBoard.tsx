@@ -47,7 +47,7 @@ export function MatchingBoard({
   const selectedAt = useRef<number>(Date.now());
 
   // Depend on ids, not array reference, so pictures never reshuffle under
-  // the child's finger on an unrelated re-render (see TapAnswer.tsx).
+  // the child's finger on an unrelated re-render (see scenes/SceneChoices.tsx).
   const pictures = useMemo(() => shuffled(items), [items.map((i) => i.id).join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleLeftTap(item: MatchingItem) {
