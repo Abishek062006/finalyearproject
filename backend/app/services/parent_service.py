@@ -115,6 +115,8 @@ def update_child_profile(db: DBSession, child_id: str, patch: dict) -> Child:
         child.sensory = sorted(set(patch["sensory"]))
     if patch.get("goals") is not None:
         child.goals = list(dict.fromkeys(patch["goals"]))
+    if patch.get("schedule") is not None:
+        child.schedule = _validated_schedule(patch["schedule"])
     _validate_buddy(patch.get("buddy_species"), patch.get("buddy_name"))
     if patch.get("buddy_species") is not None:
         child.buddy_species = patch["buddy_species"]
@@ -124,6 +126,23 @@ def update_child_profile(db: DBSession, child_id: str, patch: dict) -> Child:
     db.commit()
     db.refresh(child)
     return child
+
+
+MAX_SCHEDULE_STEPS = 12
+
+
+def _validated_schedule(steps: list[dict]) -> list[dict]:
+    from app.schemas.parent import SCHEDULE_ICONS
+
+    if len(steps) > MAX_SCHEDULE_STEPS:
+        raise ValueError(f"a day can have at most {MAX_SCHEDULE_STEPS} steps")
+    ids = [s["id"] for s in steps]
+    if len(set(ids)) != len(ids):
+        raise ValueError("schedule step ids must be unique")
+    for step in steps:
+        if step["icon"] not in SCHEDULE_ICONS:
+            raise ValueError(f"unknown schedule icon: {step['icon']}")
+    return [{"id": s["id"], "label": s["label"].strip(), "icon": s["icon"]} for s in steps]
 
 
 def _create_child_rows(db: DBSession, owner_user_id: str, nickname: str, birth_year_month: str, initial_interest_codes: list[str]) -> Child:

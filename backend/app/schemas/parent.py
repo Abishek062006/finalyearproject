@@ -22,6 +22,18 @@ class ChildInterestOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+SCHEDULE_ICONS = (
+    "sunny", "restaurant", "school", "book", "brush", "water", "bed", "car", "football", "musical-notes",
+    "color-palette", "game-controller", "tv", "cart", "people", "home", "leaf", "medkit", "shirt", "star",
+)
+
+
+class ScheduleStep(BaseModel):
+    id: str = Field(min_length=1, max_length=40)
+    label: str = Field(min_length=1, max_length=40)
+    icon: str
+
+
 class ChildOut(BaseModel):
     id: str
     nickname: str
@@ -34,6 +46,7 @@ class ChildOut(BaseModel):
     interests: list[ChildInterestOut] = []
     buddy: str = "Pip"  # the on-screen friend's name (Child.buddy)
     buddy_species: str = "pip"
+    schedule: list[ScheduleStep] = []
 
     model_config = {"from_attributes": True}
 
@@ -64,6 +77,7 @@ class ChildProfilePatch(BaseModel):
     goals: list[str] | None = None
     buddy_name: str | None = Field(default=None, max_length=20)  # "" resets to the species' own name
     buddy_species: str | None = None
+    schedule: list[ScheduleStep] | None = None
 
 
 class AddInterestRequest(BaseModel):

@@ -124,3 +124,19 @@ class InterventionEvent(Base, UUIDPKMixin):
     assignment_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("assignments.id"), nullable=True
     )
+
+
+class ChildSignal(Base, UUIDPKMixin):
+    """Something the child told us directly (plan Phase 4): a Break / Help /
+    All done press, a "How do I feel?" check-in, or a sentence built on the
+    Talk board. Kept apart from `interactions` because it can happen outside
+    any activity (e.g. on the child's home screen). Break requests and
+    upset feelings feed the safety layer (engine/safety.py)."""
+
+    __tablename__ = "child_signals"
+
+    child_id: Mapped[str] = mapped_column(String(36), ForeignKey("children.id"), index=True)
+    session_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("sessions.id"), nullable=True, index=True)
+    kind: Mapped[str] = mapped_column(String(20))  # break|help|all_done|feeling|talk
+    value: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

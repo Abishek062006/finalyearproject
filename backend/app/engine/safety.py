@@ -21,10 +21,15 @@ class DistressReading:
 class DistressMonitor:
     RISING_THRESHOLD = 0.6
 
-    def estimate(self, recent_abandon_rate: float, recent_error_streak: int) -> DistressReading:
+    def estimate(self, recent_abandon_rate: float, recent_error_streak: int, self_report: float = 0.0) -> DistressReading:
         """Phase 1: a simple rule, not a diagnosis (README §17). Replaced by
-        EngagementModel's sequence model in docs/PLAN.md Phase 6."""
-        level = min(1.0, recent_abandon_rate * 0.6 + min(recent_error_streak, 5) / 5 * 0.4)
+        EngagementModel's sequence model in docs/PLAN.md Phase 6.
+
+        `self_report` is what the child told us directly (a Break press, an
+        upset "How do I feel?" answer — services/signal_service.py). It is
+        never averaged away by good behaviour: the higher of the two wins."""
+        behaviour = recent_abandon_rate * 0.6 + min(recent_error_streak, 5) / 5 * 0.4
+        level = min(1.0, max(behaviour, self_report))
         return DistressReading(level=level, rising=level >= self.RISING_THRESHOLD)
 
 

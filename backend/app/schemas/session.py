@@ -53,3 +53,22 @@ class ChildOut(BaseModel):
     birth_year_month: str
 
     model_config = {"from_attributes": True}
+
+
+class SignalRequest(BaseModel):
+    child_id: str
+    session_id: str | None = None
+    kind: str  # break|help|all_done|feeling|talk
+    value: dict = {}
+
+
+class SignalOut(BaseModel):
+    id: str
+    kind: str
+    value: dict
+
+    model_config = {"from_attributes": True}
+
+
+class EndSessionRequest(BaseModel):
+    end_reason: str = "completed"  # completed|child_all_done|grown_up

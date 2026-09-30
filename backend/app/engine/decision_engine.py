@@ -33,7 +33,7 @@ from app.models.experiment import Axis
 from app.models.identity import Child
 from app.models.runtime import ActivityInstance, Interaction
 from app.models.runtime import Session as SessionRow
-from app.services import content_bank
+from app.services import content_bank, signal_service
 
 DEFAULT_THEME_CODE = "dino"  # fallback only — the real choice comes from the theme axis (docs/PLAN.md Phase 7)
 THEME_AXIS_CODE = "theme"
@@ -210,7 +210,9 @@ class DecisionEngine:
         # safe-fallback logic in choose_arm() had never actually been exercised
         # by anything but tests until now.
         distress_level = self.distress.estimate(
-            recent_abandon_rate=engagement.recent_abandon_rate, recent_error_streak=engagement.recent_error_streak
+            recent_abandon_rate=engagement.recent_abandon_rate,
+            recent_error_streak=engagement.recent_error_streak,
+            self_report=signal_service.self_report_level(self.db, session_id),
         ).level
 
         interventions = InterventionModel(self.db)

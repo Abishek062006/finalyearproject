@@ -11,11 +11,14 @@ from app.db import get_db
 from app.schemas.session import (
     ActivityOut,
     AnswerRequest,
+    EndSessionRequest,
     InteractionOut,
     SessionOut,
+    SignalOut,
+    SignalRequest,
     StartSessionRequest,
 )
-from app.services import session_service
+from app.services import session_service, signal_service
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -50,5 +53,19 @@ def submit_answer(activity_instance_id: str, req: AnswerRequest, db: DBSession =
 
 
 @router.post("/{session_id}/end", response_model=SessionOut)
-def finish_session(session_id: str, db: DBSession = Depends(get_db)):
-    return session_service.end_session(db, session_id)
+def finish_session(session_id: str, req: EndSessionRequest | None = None, db: DBSession = Depends(get_db)):
+    reason = req.end_reason if req else "completed"
+    if reason not in ("completed", "child_all_done", "grown_up"):
+        raise HTTPException(status_code=400, detail="unknown end reason")
+    return session_service.end_session(db, session_id, end_reason=reason)
+
+
+@router.post("/signals", response_model=SignalOut)
+def send_signal(req: SignalRequest, db: DBSession = Depends(get_db)):
+    """Break / Help / All done / feelings / Talk board (plan Phase 4)."""
+    try:
+        return signal_service.record_signal(db, req.child_id, req.kind, req.value, session_id=req.session_id)
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))

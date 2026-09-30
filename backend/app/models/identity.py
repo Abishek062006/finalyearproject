@@ -68,6 +68,10 @@ class Child(Base, UUIDPKMixin, TimestampMixin):
     # children than variety. A null name means the species' own name.
     buddy_species: Mapped[str] = mapped_column(String(20), default=DEFAULT_BUDDY_SPECIES)
     buddy_name: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # The child's visual schedule for the day (plan Phase 4): ordered steps
+    # [{id, label, icon}], edited by the parent. Ticking steps off is per day
+    # and lives on the device.
+    schedule: Mapped[list] = mapped_column(JSON, default=list)
 
     guardianships: Mapped[list["Guardianship"]] = relationship(back_populates="child")
     educator_links: Mapped[list["EducatorLink"]] = relationship(back_populates="child")
