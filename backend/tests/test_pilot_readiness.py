@@ -93,6 +93,11 @@ def test_withdraw_and_delete_removes_every_row(seeded_db):
     headers, child_id = _register_and_create_child(client)
     session_id = _play_one_round(client, headers, child_id)
     client.post(f"/parent/children/{child_id}/consent", headers=headers, json={"scope": "research_use", "granted": True})
+    # Phase 4/6 records about the child must go too.
+    client.post("/sessions/signals", json={"child_id": child_id, "session_id": session_id, "kind": "break"})
+    client.put(f"/care/children/{child_id}/journal", headers=headers, json={"day": "2026-09-30", "sleep_hours": 9})
+    client.post(f"/care/children/{child_id}/goals", headers=headers, json={"topic_code": "num_1_5"})
+    client.post(f"/care/children/{child_id}/notes", headers=headers, json={"text": "note"})
 
     r = client.delete(f"/parent/children/{child_id}", headers=headers)
     assert r.status_code == 200, r.text
@@ -103,6 +108,11 @@ def test_withdraw_and_delete_removes_every_row(seeded_db):
     assert seeded_db.query(Consent).filter_by(child_id=child_id).count() == 0
     assert seeded_db.query(SessionModel).filter_by(id=session_id).one_or_none() is None
     assert seeded_db.query(Interaction).count() == 0
+    from app.models.care import CareNote, JournalEntry, LearningGoal
+    from app.models.runtime import ChildSignal
+
+    for model in (ChildSignal, JournalEntry, LearningGoal, CareNote):
+        assert seeded_db.query(model).filter_by(child_id=child_id).count() == 0, model.__name__
 
     r = client.get("/parent/children", headers=headers)
     assert r.json() == []

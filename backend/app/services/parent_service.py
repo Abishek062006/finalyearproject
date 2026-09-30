@@ -414,6 +414,14 @@ def withdraw_and_delete_child(db: DBSession, child_id: str) -> None:
         companion_service.delete_companion_file(child)
         db.query(ChildInterest).filter_by(child_id=child_id).delete(synchronize_session=False)
 
+    # What the child told us (Phase 4) and the grown-ups' records about them
+    # (Phase 6) — child_signals reference sessions, so they go first.
+    from app.models.care import CareNote, JournalEntry, LearningGoal
+    from app.models.runtime import ChildSignal
+
+    for model in (ChildSignal, JournalEntry, LearningGoal, CareNote):
+        db.query(model).filter_by(child_id=child_id).delete(synchronize_session=False)
+
     session_ids = [row.id for row in db.query(SessionModel.id).filter_by(child_id=child_id).all()]
     activity_ids = (
         [row.id for row in db.query(ActivityInstance.id).filter(ActivityInstance.session_id.in_(session_ids)).all()]
