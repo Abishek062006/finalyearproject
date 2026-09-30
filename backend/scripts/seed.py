@@ -49,6 +49,80 @@ INTERVENTION_AXIS = ("intervention", "Which support helps them re-engage", ["min
 SAFE_DEFAULT_ARMS = {"try_then_correct", "tap", "break", "dino"}
 
 
+LETTERS = ["A", "B", "C", "D", "E"]
+DIFFICULTY_LEVELS = (1, 2, 3)
+
+
+def _distractors(answer: int, offsets: tuple[int, ...], n: int) -> list[int]:
+    """Up to n distinct counts near `answer` (in offset order), kept inside 1-5."""
+    out: list[int] = []
+    for d in offsets:
+        v = answer + d
+        if 1 <= v <= 5 and v != answer and v not in out:
+            out.append(v)
+        if len(out) == n:
+            break
+    return out
+
+
+def leveled_items(kind: str, level: int) -> list[dict]:
+    """What one item set holds at each difficulty level (DifficultyModel's
+    1-3). Counting and letter sets keep 5 items at every level, so a level
+    change never changes how much practice an activity gives — only how hard
+    each item is (fewer/closer choices). Board activities grow instead."""
+    if kind == "counting":
+        if level == 1:  # small counts, one far-off choice
+            return [{"count": a, "distractors": _distractors(a, (2, -2, 3), 1)} for a in (1, 2, 3, 2, 3)]
+        if level == 2:  # the full 1-5 range, neighbouring choices
+            return [{"count": a, "distractors": _distractors(a, (1, -1, 2, -2), 2)} for a in (1, 2, 3, 4, 5)]
+        return [{"count": a, "distractors": _distractors(a, (1, -1, 2, -2, 3, -3), 3)} for a in (3, 4, 5, 4, 5)]
+    if kind == "letter_identify":
+        pool = LETTERS[:3] if level == 1 else LETTERS
+        targets = ["A", "B", "C", "A", "B"] if level == 1 else LETTERS
+        # level 1 = one other letter, 2 = two, 3 = three; nearest letters first
+        return [
+            {"label": t, "distractors": sorted((l for l in pool if l != t), key=lambda l: abs(ord(l) - ord(t)))[:level]}
+            for t in targets
+        ]
+    if kind == "matching":
+        return [{"label": l, "distractors": []} for l in LETTERS[: level + 2]]
+    if kind == "sequencing":
+        return [{"value": v, "position": v - 1} for v in range(1, level + 3)]
+    raise ValueError(kind)
+
+
+def _add_leveled_item_sets(db, topic, kind: str, themes: dict) -> None:
+    """One matched item set per theme AND difficulty level. Within a level,
+    the four theme sets share a match_group (same size, same answers, only
+    the theme differs), so the theme axis stays a fair randomized comparison
+    (docs/SCHEMA.md §3) whatever level a child is working at."""
+    for level in DIFFICULTY_LEVELS:
+        specs = leveled_items(kind, level)
+        for theme_code, *_ in THEMES:
+            item_set = ItemSet(topic_id=topic.id, match_group=f"{topic.code}_L{level}_v2", difficulty_mean=float(level), size=len(specs))
+            db.add(item_set)
+            db.flush()
+            for spec in specs:
+                if kind == "counting":
+                    answer, distractors = {"count": spec["count"]}, spec["distractors"]
+                elif kind in ("letter_identify", "matching"):
+                    answer, distractors = {"label": spec["label"]}, spec["distractors"]
+                else:
+                    answer, distractors = {"value": spec["value"], "position": spec["position"]}, []
+                db.add(
+                    Item(
+                        topic_id=topic.id,
+                        item_set_id=item_set.id,
+                        difficulty=level,
+                        answer=answer,
+                        distractors=distractors,
+                        theme_id=themes[theme_code].id,
+                        source="authored",
+                        review_status="approved",
+                    )
+                )
+
+
 def seed_curriculum(db) -> None:
     """The actual curriculum-building logic, factored out so it can run
     against ANY SQLAlchemy session — the real dev DB (below), the pytest
@@ -126,32 +200,7 @@ def seed_curriculum(db) -> None:
         )
     )
 
-    # One matched item set per theme so the theme axis (docs/PLAN.md
-    # Phase 7) has a legitimate 4-way comparison from day one: same
-    # size, same difficulty mean, same answers -- only the theme
-    # differs. See docs/SCHEMA.md §3.
-    for theme_code, *_ in THEMES:
-        item_set = ItemSet(
-            topic_id=numbers_topic.id,
-            match_group="num_1_5_intro_v1",
-            difficulty_mean=1.4,
-            size=5,
-        )
-        db.add(item_set)
-        db.flush()
-        for answer in (1, 2, 3, 4, 5):
-            db.add(
-                Item(
-                    topic_id=numbers_topic.id,
-                    item_set_id=item_set.id,
-                    difficulty=1 if answer <= 3 else 2,
-                    answer={"count": answer},
-                    distractors=[answer - 1, answer + 1] if 1 < answer < 5 else [answer + 1],
-                    theme_id=themes[theme_code].id,
-                    source="authored",
-                    review_status="approved",
-                )
-            )
+    _add_leveled_item_sets(db, numbers_topic, "counting", themes)
 
     # Second topic, second domain, second activity kind (docs/PLAN.md's
     # content-breadth follow-up: only Numeracy had real content before this).
@@ -178,30 +227,7 @@ def seed_curriculum(db) -> None:
             )
         )
 
-    letters = ["A", "B", "C", "D", "E"]
-    for theme_code, *_ in THEMES:
-        item_set = ItemSet(
-            topic_id=letters_topic.id,
-            match_group="letters_a_e_intro_v1",
-            difficulty_mean=1.4,
-            size=5,
-        )
-        db.add(item_set)
-        db.flush()
-        for i, letter in enumerate(letters):
-            other_letters = [l for l in letters if l != letter]
-            db.add(
-                Item(
-                    topic_id=letters_topic.id,
-                    item_set_id=item_set.id,
-                    difficulty=1 if i < 3 else 2,
-                    answer={"label": letter},
-                    distractors=[other_letters[i % len(other_letters)]],
-                    theme_id=themes[theme_code].id,
-                    source="authored",
-                    review_status="approved",
-                )
-            )
+    _add_leveled_item_sets(db, letters_topic, "letter_identify", themes)
     db.flush()
 
     # Third topic, third activity kind (docs/PLAN.md Phase B: matching):
@@ -231,34 +257,7 @@ def seed_curriculum(db) -> None:
             config={"activity_kind": "matching"},
         )
     )
-    for theme_code, *_ in THEMES:
-        item_set = ItemSet(
-            topic_id=letters_match_topic.id,
-            match_group="letters_a_e_match_intro_v1",
-            difficulty_mean=1.4,
-            size=5,
-        )
-        db.add(item_set)
-        db.flush()
-        for i, letter in enumerate(letters):
-            other_letters = [l for l in letters if l != letter]
-            db.add(
-                Item(
-                    topic_id=letters_match_topic.id,
-                    item_set_id=item_set.id,
-                    difficulty=1 if i < 3 else 2,
-                    answer={"label": letter},
-                    # Unused by the matching board itself (its "wrong"
-                    # options come from the OTHER items sharing the board,
-                    # e.g. app/src/child/MatchingBoard.tsx's LETTER_MNEMONIC
-                    # lookup) — kept only for schema consistency with
-                    # letters_a_e's identical item shape.
-                    distractors=[other_letters[i % len(other_letters)]],
-                    theme_id=themes[theme_code].id,
-                    source="authored",
-                    review_status="approved",
-                )
-            )
+    _add_leveled_item_sets(db, letters_match_topic, "matching", themes)
     db.flush()
 
     # Fourth topic, fourth activity kind (docs/PLAN.md Phase B: sequencing).
@@ -284,32 +283,7 @@ def seed_curriculum(db) -> None:
             config={"activity_kind": "sequencing"},
         )
     )
-    for theme_code, *_ in THEMES:
-        item_set = ItemSet(
-            topic_id=numbers_sequence_topic.id,
-            match_group="num_1_5_sequence_intro_v1",
-            difficulty_mean=1.4,
-            size=5,
-        )
-        db.add(item_set)
-        db.flush()
-        for position, value in enumerate((1, 2, 3, 4, 5)):
-            db.add(
-                Item(
-                    topic_id=numbers_sequence_topic.id,
-                    item_set_id=item_set.id,
-                    difficulty=1 if position < 3 else 2,
-                    # "position" is the 0-indexed correct slot in the
-                    # sequence — app/src/child/SequenceBoard.tsx sorts items
-                    # by this, not by array order, since `items` arrives
-                    # already shuffled-by-nothing-in-particular from the API.
-                    answer={"value": value, "position": position},
-                    distractors=[],  # sequencing has no multiple-choice distractors
-                    theme_id=themes[theme_code].id,
-                    source="authored",
-                    review_status="approved",
-                )
-            )
+    _add_leveled_item_sets(db, numbers_sequence_topic, "sequencing", themes)
     db.flush()
 
 
@@ -327,7 +301,7 @@ def seed() -> None:
         print(
             "  topics:  num_1_5 (counting) + letters_a_e (letter_identify) + "
             "letters_a_e_match (matching) + num_1_5_sequence (sequencing), "
-            f"{len(THEMES)} matched item sets each, 5 items each"
+            f"{len(THEMES)} matched item sets per difficulty level ({len(DIFFICULTY_LEVELS)} levels) each"
         )
     finally:
         db.close()

@@ -63,8 +63,8 @@ def test_matched_item_sets_are_actually_matched(seeded_db):
     size and within +/-0.2 difficulty mean, or every comparison is confounded."""
     from app.models.curriculum import ItemSet
 
-    sets = seeded_db.query(ItemSet).filter_by(match_group="num_1_5_intro_v1").all()
-    assert len(sets) == 4  # one per theme (docs/PLAN.md Phase 7)
+    sets = seeded_db.query(ItemSet).filter_by(match_group="num_1_5_L2_v2").all()
+    assert len(sets) == 4  # one per theme at each difficulty level (docs/PLAN.md Phase 7)
     sizes = {s.size for s in sets}
     diffs = [s.difficulty_mean for s in sets]
     assert len(sizes) == 1, "matched sets must be equal size"

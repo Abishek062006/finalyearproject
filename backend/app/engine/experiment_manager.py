@@ -38,12 +38,15 @@ class ExperimentManager:
     def arms_for(self, axis_id: str) -> list[Arm]:
         return self.db.query(Arm).filter_by(axis_id=axis_id).all()
 
-    def matched_item_set(self, topic_id: str, theme_id: str | None = None) -> ItemSet | None:
-        """Returns one matched item set for the topic (optionally themed).
-        All sets sharing a match_group are equal size / difficulty (enforced
-        at seed/generation time — docs/SCHEMA.md §3)."""
-        q = self.db.query(ItemSet).filter_by(topic_id=topic_id)
-        candidates = q.all()
+    def matched_item_set(self, topic_id: str, theme_id: str | None = None, difficulty: int | None = None) -> ItemSet | None:
+        """Returns one matched item set for the topic (optionally themed, and
+        at the requested difficulty level — or the nearest level the topic
+        has). All sets sharing a match_group are equal size / difficulty
+        (enforced at seed/generation time — docs/SCHEMA.md §3)."""
+        candidates = self.db.query(ItemSet).filter_by(topic_id=topic_id).all()
+        if difficulty is not None and candidates:
+            nearest = min({s.difficulty_mean for s in candidates}, key=lambda d: abs(d - difficulty))
+            candidates = [s for s in candidates if s.difficulty_mean == nearest]
         if theme_id is not None:
             themed = [s for s in candidates if any(i.theme_id == theme_id for i in s.items)]
             if themed:

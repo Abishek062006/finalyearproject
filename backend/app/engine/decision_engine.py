@@ -31,6 +31,8 @@ from app.engine.session_planner import SessionPlanner
 from app.models.curriculum import ActivityTemplate, Guide, Item, ItemSet, Theme
 from app.models.experiment import Axis
 from app.models.identity import Child
+from app.models.runtime import ActivityInstance, Interaction
+from app.models.runtime import Session as SessionRow
 from app.services import content_bank
 
 DEFAULT_THEME_CODE = "dino"  # fallback only — the real choice comes from the theme axis (docs/PLAN.md Phase 7)
@@ -141,6 +143,38 @@ class DecisionEngine:
             candidate_arm_ids=allowed_ids,
         )
 
+    def _recent_performance(self, child_id: str, topic_id: str) -> tuple[int, RecentPerformance]:
+        """The level this child last worked at on this topic, and how that
+        activity went (accuracy, response time, attempts) — DifficultyModel
+        steps up or down one level per activity from exactly this. A child
+        new to the topic starts at level 1 with no evidence (no change)."""
+        last = (
+            self.db.query(ActivityInstance)
+            .join(SessionRow, SessionRow.id == ActivityInstance.session_id)
+            .join(Interaction, Interaction.activity_instance_id == ActivityInstance.id)
+            .filter(
+                SessionRow.child_id == child_id,
+                ActivityInstance.topic_id == topic_id,
+                Interaction.item_id.is_not(None),  # interventions answer with no item
+                Interaction.correct.is_not(None),
+            )
+            .order_by(ActivityInstance.started_at.desc())
+            .first()
+        )
+        if last is None:
+            return 1, RecentPerformance(accuracy=0.0, avg_response_time_ms=0.0, avg_attempts=1.0, n=0)
+        answers = [i for i in last.interactions if i.correct is not None and i.item_id is not None]
+        n = len(answers)
+        if n == 0:
+            return int(last.spec.get("difficulty", 1)), RecentPerformance(accuracy=0.0, avg_response_time_ms=0.0, avg_attempts=1.0, n=0)
+        times = [i.response_time_ms for i in answers if i.response_time_ms]
+        return int(last.spec.get("difficulty", 1)), RecentPerformance(
+            accuracy=sum(bool(i.correct) for i in answers) / n,
+            avg_response_time_ms=sum(times) / len(times) if times else 0.0,
+            avg_attempts=sum(i.attempts or 1 for i in answers) / n,
+            n=n,
+        )
+
     def _current_best_theme_code(self, child_id: str) -> str:
         """Used only where a theme is needed but we don't want to spend a
         new randomized trial doing it — e.g. flavoring an intervention
@@ -239,10 +273,9 @@ class DecisionEngine:
         template = (
             self.db.query(ActivityTemplate).filter_by(topic_id=topic_choice.topic_id).first()
         )
-        difficulty = self.difficulty_model.next_level(
-            current_level=1,
-            recent=RecentPerformance(accuracy=mastery.p, avg_response_time_ms=4000, avg_attempts=1, n=mastery.n_trials),
-        )
+        current_level, recent = self._recent_performance(child_id, topic_choice.topic_id)
+        max_level = template.difficulty_max if template else 1
+        difficulty = max(1, min(max_level, self.difficulty_model.next_level(current_level=current_level, recent=recent)))
 
         # If this topic is due for revision, prefer the exact item set a
         # pending probe was scheduled against — testing recall of the SAME
@@ -280,7 +313,9 @@ class DecisionEngine:
             # A real randomized comparison (docs/PLAN.md Phase 7) — interest
             # is measured causally from a matched item set in the CHOSEN
             # theme, not inferred from which theme a child happened to click.
-            item_set = self.experiments.matched_item_set(topic_choice.topic_id, theme_id=chosen_theme.id if chosen_theme else None)
+            item_set = self.experiments.matched_item_set(
+                topic_choice.topic_id, theme_id=chosen_theme.id if chosen_theme else None, difficulty=difficulty
+            )
             render_theme = chosen_theme
 
         items = []
