@@ -21,3 +21,6 @@ npm-debug.log*
 # Env
 .env
 .env.local
+
+# Third-party datasets: their licences forbid redistribution (e.g. Saliency4ASD UsageAgreement.txt).
+datasets/
