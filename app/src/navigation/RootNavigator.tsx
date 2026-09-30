@@ -15,6 +15,7 @@ import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "react-native-reanimated";
 import { ActivityIndicator, BackHandler, View } from "react-native";
+import { ChildHome } from "../child/ChildHome";
 import { ChildScreen } from "../child/ChildScreen";
 import { SpaceProvider, useTheme } from "../design";
 import { paletteFor } from "../design/tokens";
@@ -45,7 +46,7 @@ export type RootStackParamList = {
   ChildProgress: { childId: string };
   Consent: { childId: string };
   Settings: undefined;
-  ChildSpace: { childId: string };
+  ChildSpace: { childId: string; start?: "home" | "learn" };
   EducatorHome: undefined;
   EducatorProfile: { childId: string };
 };
@@ -79,7 +80,8 @@ function ParentHomeRoute({ navigation }: Props<"ParentHome">) {
   return (
     <TodayScreen
       onSetUpChild={() => navigation.navigate("Onboarding")}
-      onPlay={(childId) => navigation.navigate("ChildSpace", { childId })}
+      onPlay={(childId) => navigation.navigate("ChildSpace", { childId, start: "learn" })}
+      onOpenChildHome={(childId) => navigation.navigate("ChildSpace", { childId, start: "home" })}
       onOpenProgress={(childId) => navigation.navigate("ChildProgress", { childId })}
       onOpenProfile={(childId) => navigation.navigate("ChildProfile", { childId })}
       onOpenConsent={(childId) => navigation.navigate("Consent", { childId })}
@@ -94,7 +96,7 @@ function OnboardingRoute({ navigation }: Props<"Onboarding">) {
       onFinish={(result) => {
         if (!result) return navigation.goBack();
         selectedChild.set(result.childId);
-        if (result.play) navigation.replace("ChildSpace", { childId: result.childId });
+        if (result.play) navigation.replace("ChildSpace", { childId: result.childId, start: "learn" });
         else navigation.goBack();
       }}
     />
@@ -145,6 +147,8 @@ function ChildSpaceRoute({ navigation, route }: Props<"ChildSpace">) {
   const exitAllowed = useRef(false);
   const osReduceMotion = useReducedMotion();
   const [child, setChild] = useState<Child | null | undefined>(undefined); // undefined = still loading
+  // The child's home (My day, Talk, Calm, Wait) or a lesson; "All done" in a lesson goes home.
+  const [mode, setMode] = useState<"home" | "learn">(route.params.start ?? "learn");
 
   useEffect(() => {
     // This child's own sensory profile (onboarding) quiets the child space
@@ -174,16 +178,24 @@ function ChildSpaceRoute({ navigation, route }: Props<"ChildSpace">) {
 
   if (child === undefined) return <Splash />;
 
+  const exit = () => {
+    exitAllowed.current = true;
+    navigation.goBack();
+  };
+  const reduceMotion = osReduceMotion || !!child?.sensory.includes("motion");
+
+  if (mode === "home" && child) {
+    return <ChildHome child={child} reduceMotion={reduceMotion} onLearn={() => setMode("learn")} onExit={exit} />;
+  }
+
   return (
     <ChildScreen
       childId={route.params.childId}
+      onAllDone={child ? () => setMode("home") : undefined}
       childName={child?.nickname}
       buddySpecies={child?.buddy_species}
-      reduceMotion={osReduceMotion || !!child?.sensory.includes("motion")}
-      onExit={() => {
-        exitAllowed.current = true;
-        navigation.goBack();
-      }}
+      reduceMotion={reduceMotion}
+      onExit={exit}
     />
   );
 }

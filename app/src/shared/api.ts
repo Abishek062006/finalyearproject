@@ -55,7 +55,25 @@ export interface Child {
   interests: ChildInterest[];
   buddy: string; // the on-screen friend's name (the species' own name unless renamed)
   buddy_species: string; // which learning friend (src/companion/species.tsx)
+  schedule: ScheduleStep[]; // the child's visual schedule for the day, set by the parent
 }
+
+/** Must match backend SCHEDULE_ICONS (app/schemas/parent.py); all are Ionicons names. */
+export const SCHEDULE_ICONS = [
+  "sunny", "restaurant", "school", "book", "brush", "water", "bed", "car", "football", "musical-notes",
+  "color-palette", "game-controller", "tv", "cart", "people", "home", "leaf", "medkit", "shirt", "star",
+] as const;
+export type ScheduleIcon = (typeof SCHEDULE_ICONS)[number];
+
+export interface ScheduleStep {
+  id: string;
+  label: string;
+  icon: ScheduleIcon;
+}
+
+/** What the child tells us directly (plan Phase 4). */
+export type SignalKind = "break" | "help" | "all_done" | "feeling" | "talk";
+export type Feeling = "green" | "blue" | "yellow" | "red";
 
 export interface OnboardInterest {
   label: string;
@@ -77,6 +95,7 @@ export interface OnboardChildRequest {
 export type ChildProfilePatch = Partial<Pick<Child, "nickname" | "birth_year_month" | "communication_level" | "sensory" | "goals">> & {
   buddy_name?: string; // "" resets to the species' own name
   buddy_species?: string;
+  schedule?: ScheduleStep[];
 };
 
 export interface Session {
@@ -398,8 +417,12 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
-  endSession: (sessionId: string) =>
-    request<Session>(`/sessions/${sessionId}/end`, { method: "POST" }),
+  endSession: (sessionId: string, endReason: "completed" | "child_all_done" | "grown_up" = "completed") =>
+    request<Session>(`/sessions/${sessionId}/end`, { method: "POST", body: JSON.stringify({ end_reason: endReason }) }),
+
+  /** Never throws: a lost signal must not interrupt the child. */
+  sendSignal: (childId: string, kind: SignalKind, value: Record<string, unknown> = {}, sessionId?: string | null) =>
+    request(`/sessions/signals`, { method: "POST", body: JSON.stringify({ child_id: childId, kind, value, session_id: sessionId ?? null }) }).catch(() => undefined),
 
   /**
    * Offline-safe answer submission (docs/ARCHITECTURE.md §8, docs/PLAN.md

@@ -19,7 +19,10 @@ import { CompanionStage } from "../companion/CompanionStage";
 import { useBuddy } from "../companion/useBuddy";
 import { IdentifyScene } from "./IdentifyScene";
 import { MatchingBoard } from "./MatchingBoard";
+import { CalmCorner } from "./CalmCorner";
+import { BarAction, ChildBar, CHILD_BAR_HEIGHT } from "./ChildBar";
 import { InterventionScreen } from "./InterventionScreen";
+import { TalkBoard } from "./TalkBoard";
 import { RewardTime } from "./RewardTime";
 import { TokenBoard, TOKENS_FOR_REWARD } from "./TokenBoard";
 import { BasketScene } from "./scenes/BasketScene";
@@ -43,12 +46,15 @@ const NO_TEXT_SELECTION = Platform.OS === "web" ? ({ userSelect: "none" } as obj
 export function ChildScreen({
   childId,
   onExit,
+  onAllDone,
   childName,
   buddySpecies,
   reduceMotion = false,
 }: {
   childId: string;
   onExit: () => void;
+  /** The child pressed "All done": the session ends and they go to their home screen. */
+  onAllDone?: () => void;
   childName?: string;
   buddySpecies?: string;
   reduceMotion?: boolean;
@@ -65,6 +71,7 @@ export function ChildScreen({
   const tokensRef = useRef(0);
   const [posted, setPosted] = useState(false); // mailbox flag, up while a right letter is being posted
   const targetRef = useRef<View>(null); // where an answer piece goes: the basket's tag, the mailbox slot
+  const [overlay, setOverlay] = useState<"talk" | "calm" | null>(null); // Talk board / calm corner over the lesson
   const { colors: childColors } = useTheme();
   const insets = useSafeAreaInsets();
   const { showDecisionOverlay } = useSettings();
@@ -179,6 +186,8 @@ export function ChildScreen({
     const earned = tokensRef.current + 1;
     tokensRef.current = earned;
     setTokens(earned);
+    // Say the change is coming before it comes (a transition warning).
+    if (earned === TOKENS_FOR_REWARD - 2) await buddy.say("Two more, then play time!", { mood: "happy" });
     if (earned < TOKENS_FOR_REWARD) return goToNextActivity();
     buddy.gesture("celebrate");
     setPhase("reward");
@@ -244,12 +253,37 @@ export function ChildScreen({
     }
   }
 
+  /** The always-on Talk / Break / Help / All done bar. */
+  async function handleBar(action: BarAction) {
+    const sessionId = session?.id;
+    if (action === "talk") {
+      setOverlay("talk");
+    } else if (action === "break") {
+      buddy.stop();
+      api.sendSignal(childId, "break", {}, sessionId); // tells the safety layer to go gentle
+      setOverlay("calm");
+    } else if (action === "help") {
+      api.sendSignal(childId, "help", {}, sessionId);
+      if (!activity || activity.spec.is_intervention) return;
+      buddy.lookAt(0, 0);
+      await buddy.say(`Let's do it together. ${currentPrompt(activity, itemIndex)}`, { mood: "encouraging" });
+      buddy.lookAt(0.35, 1);
+      buddy.gesture("point");
+    } else {
+      api.sendSignal(childId, "all_done", {}, sessionId);
+      buddy.gesture("wave");
+      await buddy.say("Okay, all done! Great work today.", { mood: "happy" });
+      if (sessionId) api.endSession(sessionId, "child_all_done").catch(() => {});
+      (onAllDone ?? onExit)();
+    }
+  }
+
   // Only reachable through the grown-ups gate (ParentalGate) — never a plain tap.
   async function finishForToday() {
     buddy.stop();
     if (session) {
       try {
-        await api.endSession(session.id);
+        await api.endSession(session.id, "grown_up");
       } catch {
         // Offline: nothing to lose here (endSession just stamps ended_at/
         // end_reason) — let the child leave either way rather than trap
@@ -451,7 +485,7 @@ export function ChildScreen({
         onLayout={(e) => setViewportHeight(e.nativeEvent.layout.height)}
         onContentSizeChange={(_w, h) => setContentHeight(h)}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + GATE_CLEARANCE, paddingBottom: insets.bottom + spacing.lg }]}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + GATE_CLEARANCE, paddingBottom: CHILD_BAR_HEIGHT + insets.bottom + spacing.md }]}
       >
         <View style={styles.column}>
           <CompanionStage buddy={buddy} holdingUri={companionUri} size={buddySize} species={buddySpecies} />
@@ -459,10 +493,34 @@ export function ChildScreen({
         </View>
       </ScrollView>
 
+      <View style={styles.barSlot}>
+        <ChildBar onAction={handleBar} bottomInset={insets.bottom} />
+      </View>
+
+      {overlay && (
+        <View style={[styles.overlay, { paddingTop: insets.top + GATE_CLEARANCE }]}>
+          {overlay === "talk" ? (
+            <TalkBoard childId={childId} sessionId={session?.id} onClose={() => setOverlay(null)} />
+          ) : (
+            <CalmCorner
+              childId={childId}
+              sessionId={session?.id}
+              buddy={buddy}
+              species={buddySpecies}
+              reduceMotion={reduceMotion}
+              onReady={() => {
+                setOverlay(null);
+                buddy.say("Welcome back! Let's keep going.", { mood: "happy" });
+              }}
+            />
+          )}
+        </View>
+      )}
+
       {/* Research/debug strip — the adaptive engine's decisions. Off unless a grown-up
           turns it on in Settings > Research & development (dev builds only). */}
       {showDecisionOverlay && (
-      <View style={[styles.debugStrip, { bottom: insets.bottom + spacing.xs }]}>
+      <View style={[styles.debugStrip, { bottom: CHILD_BAR_HEIGHT + insets.bottom + spacing.xs }]}>
         <Text style={styles.debugText}>
           topic={activity.spec.topic_code} ({activity.spec.topic_reason}) · kind={activity.spec.activity_kind} ·
           difficulty={activity.spec.difficulty} · method={activity.spec.method} [
@@ -486,6 +544,9 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.lg },
   gateSlot: { position: "absolute", right: spacing.md, zIndex: 10 },
   tokenSlot: { position: "absolute", left: spacing.md, zIndex: 10 },
+  barSlot: { position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 5 },
+  // Over the lesson, under the grown-ups gate (zIndex 10), so a grown-up can always get out.
+  overlay: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, zIndex: 8, backgroundColor: "#EEF3F9" },
   loadingText: { marginTop: spacing.md, fontSize: 18, color: colors.textSecondary },
   errorText: { color: colors.textPrimary, fontSize: 16, textAlign: "center", marginBottom: spacing.lg },
   retryButton: { backgroundColor: colors.primary, paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, borderRadius: 20 },

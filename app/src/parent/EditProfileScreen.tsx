@@ -11,6 +11,8 @@ import { api, Child, ChildProfilePatch } from "../shared/api";
 import { ProfileField } from "./ChildProfileScreen";
 import { BuddyPicker } from "../companion/BuddyPicker";
 import { speciesFor } from "../companion/species";
+import { ScheduleEditor } from "./ScheduleEditor";
+import { TalkButtonsEditor } from "./TalkButtonsEditor";
 
 const TITLES: Record<ProfileField, string> = {
   basics: "Name and age",
@@ -19,6 +21,8 @@ const TITLES: Record<ProfileField, string> = {
   sensory: "Sensory needs",
   goals: "Learning goals",
   interests: "Add an interest",
+  schedule: "My day",
+  talk: "Talk board buttons",
 };
 
 export function EditProfileScreen({ childId, field, onDone }: { childId: string; field: ProfileField; onDone: () => void }) {
@@ -42,6 +46,7 @@ export function EditProfileScreen({ childId, field, onDone }: { childId: string;
           goals: c.goals,
           buddy_name: c.buddy === speciesFor(c.buddy_species).name ? "" : c.buddy,
           buddy_species: c.buddy_species,
+          schedule: c.schedule ?? [],
         });
       })
       .catch((err) => setError(err instanceof Error ? err.message : String(err)));
@@ -60,7 +65,9 @@ export function EditProfileScreen({ childId, field, onDone }: { childId: string;
             ? { communication_level: draft.communication_level }
             : field === "sensory"
               ? { sensory: draft.sensory }
-              : { goals: draft.goals };
+              : field === "schedule"
+                ? { schedule: draft.schedule ?? [] }
+                : { goals: draft.goals };
       await api.updateChild(childId, patch);
       haptic("success");
       onDone();
@@ -106,6 +113,8 @@ export function EditProfileScreen({ childId, field, onDone }: { childId: string;
       )}
       {field === "sensory" && <SensoryStep value={draft.sensory ?? []} onChange={(v) => setDraft({ ...draft, sensory: v })} />}
       {field === "goals" && <GoalsStep value={draft.goals ?? []} onChange={(v) => setDraft({ ...draft, goals: v })} />}
+      {field === "schedule" && <ScheduleEditor steps={draft.schedule ?? []} onChange={(v) => setDraft({ ...draft, schedule: v })} />}
+      {field === "talk" && <TalkButtonsEditor childId={childId} />}
       {field === "interests" && (
         <InterestSearch
           busyUrl={busyUrl}
@@ -133,7 +142,7 @@ export function EditProfileScreen({ childId, field, onDone }: { childId: string;
         </Text>
       )}
 
-      {field !== "interests" && (
+      {field !== "interests" && field !== "talk" && (
         <View style={{ marginTop: spacing.lg }}>
           <Button title="Save" onPress={save} loading={saving} disabled={!canSave} />
         </View>

@@ -21,6 +21,7 @@ function greeting(now = new Date()): string {
 export function TodayScreen({
   onSetUpChild,
   onPlay,
+  onOpenChildHome,
   onOpenProgress,
   onOpenProfile,
   onOpenConsent,
@@ -28,6 +29,8 @@ export function TodayScreen({
 }: {
   onSetUpChild: () => void;
   onPlay: (childId: string) => void;
+  /** The child's own space: My day, Talk board, Calm corner, Wait timer. */
+  onOpenChildHome: (childId: string) => void;
   onOpenProgress: (childId: string) => void;
   onOpenProfile: (childId: string) => void;
   onOpenConsent: (childId: string) => void;
@@ -227,6 +230,14 @@ export function TodayScreen({
 
       <ListSection>
         <ListRow title="Progress" icon="bar-chart" iconColor="#34C759" accessory="chevron" onPress={() => onOpenProgress(child.id)} />
+        <ListRow
+          title={`Open ${child.nickname}'s space`}
+          subtitle="My day, Talk board, Calm corner, Wait timer"
+          icon="apps"
+          iconColor="#AF52DE"
+          accessory="chevron"
+          onPress={() => onOpenChildHome(child.id)}
+        />
         <ListRow title={`${child.nickname}'s profile`} subtitle="Interests, sensory needs, goals" icon="person-circle" iconColor="#0A84FF" accessory="chevron" onPress={() => onOpenProfile(child.id)} />
         <ListRow title="Privacy & sharing" icon="lock-closed" iconColor="#8E8E93" accessory="chevron" onPress={() => onOpenConsent(child.id)} />
       </ListSection>
