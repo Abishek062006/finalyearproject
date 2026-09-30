@@ -13,6 +13,7 @@ import { BuddyPicker } from "../companion/BuddyPicker";
 import { speciesFor } from "../companion/species";
 import { ScheduleEditor } from "./ScheduleEditor";
 import { TalkButtonsEditor } from "./TalkButtonsEditor";
+import { StoriesEditor } from "./StoriesEditor";
 
 const TITLES: Record<ProfileField, string> = {
   basics: "Name and age",
@@ -23,6 +24,7 @@ const TITLES: Record<ProfileField, string> = {
   interests: "Add an interest",
   schedule: "My day",
   talk: "Talk board buttons",
+  stories: "Social stories",
 };
 
 export function EditProfileScreen({ childId, field, onDone }: { childId: string; field: ProfileField; onDone: () => void }) {
@@ -115,6 +117,7 @@ export function EditProfileScreen({ childId, field, onDone }: { childId: string;
       {field === "goals" && <GoalsStep value={draft.goals ?? []} onChange={(v) => setDraft({ ...draft, goals: v })} />}
       {field === "schedule" && <ScheduleEditor steps={draft.schedule ?? []} onChange={(v) => setDraft({ ...draft, schedule: v })} />}
       {field === "talk" && <TalkButtonsEditor childId={childId} />}
+      {field === "stories" && <StoriesEditor childId={childId} />}
       {field === "interests" && (
         <InterestSearch
           busyUrl={busyUrl}
@@ -142,7 +145,7 @@ export function EditProfileScreen({ childId, field, onDone }: { childId: string;
         </Text>
       )}
 
-      {field !== "interests" && field !== "talk" && (
+      {field !== "interests" && field !== "talk" && field !== "stories" && (
         <View style={{ marginTop: spacing.lg }}>
           <Button title="Save" onPress={save} loading={saving} disabled={!canSave} />
         </View>

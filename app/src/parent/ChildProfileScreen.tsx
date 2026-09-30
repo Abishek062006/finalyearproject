@@ -12,7 +12,7 @@ import { api, API_BASE, Child, ChildInterest } from "../shared/api";
 import { pickChildPhoto, saveChildPhoto, useChildPhoto } from "../shared/childPhotos";
 import { ChildAvatar } from "./ChildAvatar";
 
-export type ProfileField = "basics" | "buddy" | "communication" | "sensory" | "goals" | "interests" | "schedule" | "talk";
+export type ProfileField = "basics" | "buddy" | "communication" | "sensory" | "goals" | "interests" | "schedule" | "talk" | "stories";
 
 export function ChildProfileScreen({
   childId,
@@ -98,7 +98,7 @@ export function ChildProfileScreen({
         <ListRow title="Learning goals" value={goalsLabel(child.goals)} icon="flag" iconColor="#34C759" accessory="chevron" onPress={() => onEdit("goals")} />
       </ListSection>
 
-      <ListSection header="Everyday supports" footer="Your child finds these in their own space: My day shows the plan as First-Then; the Talk board speaks for them.">
+      <ListSection header="Everyday supports" footer="Your child finds these in their own space: My day shows the plan as First-Then, the Talk board speaks for them, and stories are read aloud by their buddy.">
         <ListRow
           title="My day"
           value={child.schedule?.length ? `${child.schedule.length} step${child.schedule.length > 1 ? "s" : ""}` : "Not set"}
@@ -108,6 +108,7 @@ export function ChildProfileScreen({
           onPress={() => onEdit("schedule")}
         />
         <ListRow title="Talk board buttons" subtitle="Your child's own words, with your photos" icon="chatbubbles" iconColor="#AF52DE" accessory="chevron" onPress={() => onEdit("talk")} />
+        <ListRow title="Social stories" subtitle="What to expect: haircut, dentist, new school…" icon="book" iconColor="#FF3B30" accessory="chevron" onPress={() => onEdit("stories")} />
       </ListSection>
 
       <ListSection header="Interests" footer="The starred interest is their companion — the friend who talks to them during activities. Tap another to change it.">

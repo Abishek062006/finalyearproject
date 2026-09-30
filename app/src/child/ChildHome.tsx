@@ -15,16 +15,20 @@ import { API_BASE, Child } from "../shared/api";
 import { childFonts } from "../shared/theme";
 import { CalmCorner } from "./CalmCorner";
 import { MyDay } from "./MyDay";
+import { RoutineGuide } from "./RoutineGuide";
+import { StoryShelf } from "./StoryShelf";
 import { TalkBoard } from "./TalkBoard";
 import { WaitTimer } from "./WaitTimer";
 
-type View_ = "home" | "day" | "talk" | "calm" | "wait";
+type View_ = "home" | "day" | "talk" | "calm" | "wait" | "stories" | "routines";
 
 const TILES: { view: View_ | "learn"; label: string; icon: keyof typeof Ionicons.glyphMap; tint: string; fill: string }[] = [
   { view: "learn", label: "Learn", icon: "star", tint: "#0071E3", fill: "#DCEAFB" },
   { view: "day", label: "My day", icon: "calendar", tint: "#B7791F", fill: "#FBEFD5" },
   { view: "talk", label: "Talk", icon: "chatbubbles", tint: "#8E44AD", fill: "#EFE2F6" },
   { view: "calm", label: "Calm", icon: "leaf", tint: "#2E8B57", fill: "#DDF2E3" },
+  { view: "stories", label: "Stories", icon: "book", tint: "#C0392B", fill: "#FBE3E0" },
+  { view: "routines", label: "How to", icon: "list", tint: "#1E8A8A", fill: "#D9F1F1" },
   { view: "wait", label: "Wait", icon: "hourglass", tint: "#3C6E91", fill: "#DDEBF4" },
 ];
 
@@ -91,6 +95,16 @@ export function ChildHome({
           steps={child.schedule ?? []}
           onStepDone={(_step, next) => buddy.say(next ? `Well done! Next is ${next.label}.` : "Well done! That's everything for today.", { mood: "happy" })}
         />
+      </>
+    );
+  } else if (view === "stories" || view === "routines") {
+    body = (
+      <>
+        {back}
+        <View style={styles.stageSmall}>
+          <CompanionStage buddy={buddy} size={96} species={child.buddy_species} />
+        </View>
+        {view === "stories" ? <StoryShelf childId={child.id} childName={child.nickname} buddy={buddy} /> : <RoutineGuide buddy={buddy} />}
       </>
     );
   } else if (view === "wait") {

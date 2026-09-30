@@ -105,14 +105,30 @@ export interface Session {
   end_reason: string | null;
 }
 
-export type ActivityKind = "counting" | "letter_identify" | "matching" | "sequencing" | "intervention";
+export type ActivityKind =
+  | "counting"
+  | "letter_identify"
+  | "matching"
+  | "sequencing"
+  | "emotion_identify" // plan Phase 5: answer.label is a feeling (happy|sad|angry|scared|surprised)
+  | "routine_order" // plan Phase 5: answer is one step of an everyday routine
+  | "intervention";
+
+export interface RoutineStepAnswer {
+  value: number;
+  position: number;
+  label: string;
+  icon: string; // an emoji picture of the step
+  routine: string;
+  routine_label: string;
+}
 
 export interface ActivityItem {
   id: string;
   // "counting" -> { count }; "letter_identify" / "matching" -> { label };
   // "sequencing" -> { value, position }. Which shape applies is decided by
   // ActivitySpec.activity_kind, not by inspecting the item itself.
-  answer: { count: number } | { label: string } | { value: number; position: number };
+  answer: { count: number } | { label: string } | { value: number; position: number } | RoutineStepAnswer;
   distractors: (number | string)[];
 }
 

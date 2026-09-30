@@ -29,11 +29,19 @@ import { BasketScene } from "./scenes/BasketScene";
 import { MailboxScene } from "./scenes/MailboxScene";
 import { SceneChoices } from "./scenes/SceneChoices";
 import { TrainBoard } from "./scenes/TrainBoard";
+import { FeelingsScene } from "./scenes/FeelingsScene";
+import { RoutineBoard } from "./scenes/RoutineBoard";
+import { SPECIES_LIST } from "../companion/species";
 import { api, API_BASE, Activity, Session } from "../shared/api";
 import { pendingCount } from "../shared/offlineQueue";
 import { colors, spacing, THEME_ASSETS, ThemeCode, childFonts } from "../shared/theme";
 
 type Phase = "loading" | "playing" | "feedback" | "reward" | "error";
+
+/** Activities answered as one whole board rather than item by item. */
+const BOARD_KINDS: string[] = ["matching", "sequencing", "routine_order"];
+/** Prompts with a "{label}" placeholder that each item fills in (its letter, its feeling). */
+const LABEL_PROMPT_KINDS: string[] = ["letter_identify", "emotion_identify"];
 
 const NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
 
@@ -115,7 +123,7 @@ export function ChildScreen({
 
   // Pip reads every question aloud (pre-readers can't read the prompt), then
   // looks down at the answers and points to them.
-  const isBoard = activity?.spec.activity_kind === "matching" || activity?.spec.activity_kind === "sequencing";
+  const isBoard = BOARD_KINDS.includes(activity?.spec.activity_kind ?? "");
   const promptKey = activity && !activity.spec.is_intervention ? `${activity.id}:${isBoard ? "board" : itemIndex}` : null;
   useEffect(() => {
     if (phase !== "playing" || !promptKey || !activity) return;
@@ -401,6 +409,26 @@ export function ChildScreen({
         />
       </>
     );
+  } else if (activity.spec.activity_kind === "routine_order") {
+    const steps = activity.spec.items.map((i) => ({
+      id: i.id,
+      position: "position" in i.answer ? i.answer.position : 0,
+      label: "routine" in i.answer ? i.answer.label : "",
+      icon: "routine" in i.answer ? i.answer.icon : "help",
+    }));
+    const first = activity.spec.items[0]?.answer;
+    sceneAndAnswer = (
+      <RoutineBoard
+        key={activity.id}
+        title={first && "routine" in first ? first.routine_label : ""}
+        promptText={activity.spec.prompt_text}
+        items={steps}
+        method={activity.spec.method}
+        onItemAnswered={handleBoardItemAnswered}
+        onAllDone={handleBoardAllDone}
+        disabled={phase !== "playing"}
+      />
+    );
   } else if (activity.spec.activity_kind === "sequencing") {
     sceneAndAnswer = (
       // key=activity.id — see the identical comment on MatchingBoard above.
@@ -427,16 +455,20 @@ export function ChildScreen({
     // "letter_identify" prompts carry a "{label}" placeholder each item
     // fills in with its own target letter (content/generator's
     // identify_prompt_template) — counting prompts have no placeholder.
-    const promptText =
-      activity.spec.activity_kind === "letter_identify" && "label" in item.answer
-        ? activity.spec.prompt_text.replace("{label}", item.answer.label)
-        : activity.spec.prompt_text;
+    const promptText = currentPrompt(activity, itemIndex);
 
     const isLetters = activity.spec.activity_kind === "letter_identify";
+    const isFeelings = activity.spec.activity_kind === "emotion_identify";
+    // Feelings: at the top level each face is a different friend, so the child
+    // learns the feeling itself, not one character's face.
+    const faceSpecies = (value: string | number) =>
+      level >= 3 ? SPECIES_LIST[(choices.indexOf(value) + 1) % SPECIES_LIST.length].code : buddySpecies ?? "pip";
 
     sceneAndAnswer = (
       <>
-        {isLetters ? (
+        {isFeelings ? (
+          <FeelingsScene promptText={promptText} targetRef={targetRef} />
+        ) : isLetters ? (
           <MailboxScene promptText={promptText} posted={posted} targetRef={targetRef} />
         ) : (
           <BasketScene
@@ -456,7 +488,8 @@ export function ChildScreen({
         {/* key=item.id: fresh pieces (and a fresh shuffle) for every question. */}
         <SceneChoices
           key={`pieces-${item.id}`}
-          kind={isLetters ? "envelope" : "block"}
+          kind={isFeelings ? "face" : isLetters ? "envelope" : "block"}
+          faceSpecies={isFeelings ? faceSpecies : undefined}
           modality={modality}
           choices={choices}
           correctValue={answerValue}
@@ -526,7 +559,7 @@ export function ChildScreen({
           difficulty={activity.spec.difficulty} · method={activity.spec.method} [
           {activity.spec.decision_types.teaching_method}] · modality={activity.spec.modality} [
           {activity.spec.decision_types.modality}] ·{" "}
-          {activity.spec.activity_kind === "matching" || activity.spec.activity_kind === "sequencing"
+          {isBoard
             ? `resolved ${boardResolved}/${activity.spec.items.length}`
             : `item ${itemIndex + 1}/${activity.spec.items.length}`}{" "}
           · rounds={roundsCompleted}
@@ -555,10 +588,10 @@ const styles = StyleSheet.create({
   debugText: { fontSize: 11, color: colors.textSecondary, textAlign: "center", fontFamily: "monospace" },
 });
 
-/** The spoken form of the current question — letter prompts fill in their target letter. */
+/** The spoken form of the current question — letter and feeling prompts fill in their target. */
 function currentPrompt(activity: Activity, itemIndex: number): string {
   const item = activity.spec.items[itemIndex];
-  if (activity.spec.activity_kind === "letter_identify" && item && "label" in item.answer) {
+  if (LABEL_PROMPT_KINDS.includes(activity.spec.activity_kind) && item && "label" in item.answer) {
     return activity.spec.prompt_text.replace("{label}", item.answer.label);
   }
   return activity.spec.prompt_text;

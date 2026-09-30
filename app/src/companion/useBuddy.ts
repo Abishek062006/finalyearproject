@@ -25,10 +25,22 @@ import {
 import { speak, stopSpeaking } from "../shared/speech";
 import { buildTimeline, frameAt, MouthShape, REST } from "./lipSync";
 
-export type Mood = "neutral" | "happy" | "excited" | "thinking" | "encouraging" | "concerned";
+export type Mood =
+  | "neutral"
+  | "happy"
+  | "excited"
+  | "thinking"
+  | "encouraging"
+  | "concerned"
+  // Feelings the child learns to recognise (plan Phase 5). Only ever shown as
+  // pictures to learn from — the buddy never reacts to the child this way.
+  | "sad"
+  | "angry"
+  | "scared"
+  | "surprised";
 export type Gesture = "wave" | "point" | "pointLeft" | "clap" | "celebrate" | "nod";
 
-const MOODS: Record<Mood, { smile: number; browY: number; browTilt: number; squint: number; tilt: number }> = {
+const MOODS: Record<Mood, { smile: number; browY: number; browTilt: number; squint: number; tilt: number; open?: number; round?: number }> = {
   neutral: { smile: 0.55, browY: 0, browTilt: 0, squint: 1, tilt: 0 },
   happy: { smile: 1, browY: -0.6, browTilt: 0, squint: 0.82, tilt: 0 },
   excited: { smile: 1.25, browY: -1, browTilt: 0, squint: 0.9, tilt: 0 },
@@ -36,6 +48,11 @@ const MOODS: Record<Mood, { smile: number; browY: number; browTilt: number; squi
   encouraging: { smile: 0.9, browY: -0.3, browTilt: 0, squint: 0.9, tilt: 5 },
   // Gentle and caring, never sad or cross — a wrong answer is not a failure (README §31).
   concerned: { smile: 0.3, browY: -0.3, browTilt: 12, squint: 1, tilt: 3 },
+  // A negative smile turns the mouth into a frown; brow tilt > 0 lifts the inner ends (worried/sad), < 0 lowers them (cross).
+  sad: { smile: -0.9, browY: 0.3, browTilt: 18, squint: 0.85, tilt: 5 },
+  angry: { smile: -0.6, browY: 1, browTilt: -20, squint: 0.72, tilt: 0 },
+  scared: { smile: -0.3, browY: -1.3, browTilt: 14, squint: 1.25, tilt: 0, open: 0.3, round: 0.3 },
+  surprised: { smile: 0, browY: -1.6, browTilt: 0, squint: 1.22, tilt: 0, open: 0.55, round: 0.85 },
 };
 
 // Arm angles in degrees. Arms hang straight down at 0; positive = clockwise on
@@ -164,6 +181,8 @@ export function useBuddy({ reduceMotion = false }: { reduceMotion?: boolean } = 
       values.browTilt.value = withSpring(m.browTilt, spring);
       values.squint.value = withSpring(m.squint, spring);
       values.tilt.value = withSpring(reduceMotion ? 0 : m.tilt, spring);
+      values.mouthOpen.value = withSpring(m.open ?? 0, spring);
+      values.mouthRound.value = withSpring(m.round ?? 0, spring);
     },
     [reduceMotion, values]
   );

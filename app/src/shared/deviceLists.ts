@@ -4,11 +4,13 @@
  *
  * - Talk-board buttons the parent adds (a photo of the child's own cup,
  *   bike, grandma…): real photos of the child's home stay on the device.
+ * - Social stories, which hold family photos too.
  * - Which steps of today's visual schedule the child has ticked off: it
  *   only matters today, on the device the child is holding.
  */
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useState } from "react";
+import type { Story } from "./stories";
 
 export interface TalkButton {
   id: string;
@@ -65,4 +67,11 @@ export function useTalkButtons(childId: string | undefined) {
 /** Ids of today's schedule steps the child has finished. Resets each day. */
 export function useScheduleDone(childId: string | undefined) {
   return useStoredList<string>(childId ? doneKey(childId) : null);
+}
+
+const storiesKey = (childId: string) => `aura.stories.${childId}`;
+
+/** The child's social stories (shared/stories.ts), with any family photos in them. */
+export function useStories(childId: string | undefined) {
+  return useStoredList<Story>(childId ? storiesKey(childId) : null);
 }
