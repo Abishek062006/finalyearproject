@@ -79,17 +79,25 @@ export async function flushQueue(
 ): Promise<{ flushed: number; remaining: number }> {
   const queue = await readQueue();
   let i = 0;
+  let flushed = 0;
   for (; i < queue.length; i++) {
     const item = queue[i];
     try {
       await submit(item.activityInstanceId, { ...item.payload, interaction_id: item.interactionId });
-    } catch {
+      flushed++;
+    } catch (err) {
+      // The server refused this answer outright (e.g. 404: its activity was
+      // deleted) — retrying can never succeed, and keeping it at the head
+      // would block every answer queued behind it. Drop it and carry on.
+      // Anything else (offline, 5xx) is temporary: stop and retry later.
+      const status = (err as { status?: number }).status;
+      if (status !== undefined && status >= 400 && status < 500) continue;
       break;
     }
   }
   const remaining = queue.slice(i);
   await writeQueue(remaining);
-  return { flushed: i, remaining: remaining.length };
+  return { flushed, remaining: remaining.length };
 }
 
 export function newInteractionId(): string {

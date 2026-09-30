@@ -4,7 +4,7 @@ Session lifecycle endpoints for the child app (docs/ARCHITECTURE.md §7).
 No auth wired in yet — that arrives with the dashboards in docs/PLAN.md Phase 3.
 For now a dev-only endpoint (app/api/dev.py) creates children/users to test with.
 """
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session as DBSession
 
 from app.db import get_db
@@ -34,17 +34,19 @@ def get_next_activity(session_id: str, db: DBSession = Depends(get_db)):
 
 @router.post("/activities/{activity_instance_id}/answer", response_model=InteractionOut)
 def submit_answer(activity_instance_id: str, req: AnswerRequest, db: DBSession = Depends(get_db)):
-    interaction = session_service.record_answer(
-        db,
-        activity_instance_id=activity_instance_id,
-        item_id=req.item_id,
-        correct=req.correct,
-        response_time_ms=req.response_time_ms,
-        attempts=req.attempts,
-        hints_used=req.hints_used,
-        interaction_id=req.interaction_id,
-    )
-    return interaction
+    try:
+        return session_service.record_answer(
+            db,
+            activity_instance_id=activity_instance_id,
+            item_id=req.item_id,
+            correct=req.correct,
+            response_time_ms=req.response_time_ms,
+            attempts=req.attempts,
+            hints_used=req.hints_used,
+            interaction_id=req.interaction_id,
+        )
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.post("/{session_id}/end", response_model=SessionOut)

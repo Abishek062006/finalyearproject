@@ -129,6 +129,13 @@ export interface Activity {
   spec: ActivitySpec;
 }
 
+/** An HTTP error from the server, as opposed to no connection at all. */
+export class ApiError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+  }
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const token = authStore.getToken();
   const res = await fetch(`${API_BASE}${path}`, {
@@ -140,7 +147,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(`${options?.method ?? "GET"} ${path} -> ${res.status}: ${body}`);
+    throw new ApiError(`${options?.method ?? "GET"} ${path} -> ${res.status}: ${body}`, res.status);
   }
   return res.json() as Promise<T>;
 }

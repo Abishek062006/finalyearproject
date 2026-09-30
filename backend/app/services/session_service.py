@@ -156,7 +156,11 @@ def record_answer(
         if existing is not None:
             return existing
 
-    activity = db.query(ActivityInstance).filter_by(id=activity_instance_id).one()
+    activity = db.query(ActivityInstance).filter_by(id=activity_instance_id).one_or_none()
+    if activity is None:
+        # e.g. a queued offline answer for an activity whose data was since
+        # deleted (consent withdrawn) — permanent, not worth retrying.
+        raise LookupError(f"activity {activity_instance_id} not found")
     session = db.query(SessionModel).filter_by(id=activity.session_id).one()
     now = datetime.now(timezone.utc)
 

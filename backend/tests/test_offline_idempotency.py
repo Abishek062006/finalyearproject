@@ -49,3 +49,15 @@ def test_without_an_interaction_id_behaviour_is_unchanged(seeded_db, child_id):
     assert interaction.id is not None
     mastery = seeded_db.query(MasteryState).filter_by(child_id=child_id, topic_id=activity.spec["topic_id"]).one()
     assert mastery.trials == 1
+
+
+def test_an_answer_for_an_unknown_activity_is_a_clear_not_found(seeded_db):
+    """A queued offline answer can outlive its activity (data deleted on
+    consent withdrawal, a wiped dev DB). That must be a permanent "not found"
+    the client can drop — not a server crash it retries forever."""
+    import pytest
+
+    with pytest.raises(LookupError):
+        session_service.record_answer(
+            seeded_db, "no-such-activity", item_id=None, correct=True, response_time_ms=0, interaction_id=str(uuid.uuid4())
+        )
