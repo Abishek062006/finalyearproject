@@ -37,6 +37,16 @@ def _validate_profile(communication_level: str | None, sensory: list[str] | None
         raise ValueError(f"Unknown sensory flags: {sorted(set(sensory) - SENSORY_FLAGS)}")
 
 
+def _validate_buddy(species: str | None, name: str | None) -> None:
+    from app.models.identity import BUDDY_SPECIES
+    from app.services.companion_service import validate_query
+
+    if species is not None and species not in BUDDY_SPECIES:
+        raise ValueError(f"Unknown learning friend: {species}")
+    if name and name.strip() and validate_query(name.strip()):
+        raise ValueError("The friend's name should be a short, simple word.")
+
+
 def _validate_goals(db: DBSession, goals: list[str] | None) -> None:
     if not goals:
         return
@@ -54,6 +64,8 @@ def onboard_child(
     sensory: list[str],
     goals: list[str],
     interests: list[dict],
+    buddy_species: str = "pip",
+    buddy_name: str | None = None,
 ) -> Child:
     """The whole onboarding flow (plan Phase 1) in one step: every photo is
     validated and downloaded FIRST, and only then is anything written — so a
@@ -64,6 +76,7 @@ def onboard_child(
 
     _validate_profile(communication_level, sensory, goals)
     _validate_goals(db, goals)
+    _validate_buddy(buddy_species, buddy_name)
     if len(interests) > interest_service.MAX_INTERESTS:
         raise ValueError(f"At most {interest_service.MAX_INTERESTS} interests.")
     for item in interests:
@@ -81,6 +94,8 @@ def onboard_child(
     child.communication_level = communication_level
     child.sensory = sorted(set(sensory))
     child.goals = list(dict.fromkeys(goals))
+    child.buddy_species = buddy_species
+    child.buddy_name = buddy_name.strip().title() if buddy_name and buddy_name.strip() else None
     favourite_index = next((i for i, item in enumerate(interests) if item.get("favourite")), 0)
     for i, (item, image_path) in enumerate(zip(interests, downloaded)):
         interest_service.attach_interest(db, child, item["label"], image_path, item["source_title"], favourite=(i == favourite_index))
@@ -100,13 +115,11 @@ def update_child_profile(db: DBSession, child_id: str, patch: dict) -> Child:
         child.sensory = sorted(set(patch["sensory"]))
     if patch.get("goals") is not None:
         child.goals = list(dict.fromkeys(patch["goals"]))
+    _validate_buddy(patch.get("buddy_species"), patch.get("buddy_name"))
+    if patch.get("buddy_species") is not None:
+        child.buddy_species = patch["buddy_species"]
     if patch.get("buddy_name") is not None:
         name = patch["buddy_name"].strip()
-        if name:
-            from app.services.companion_service import validate_query
-
-            if validate_query(name):
-                raise ValueError("The friend's name should be a short, simple word.")
         child.buddy_name = name.title() if name else None
     db.commit()
     db.refresh(child)

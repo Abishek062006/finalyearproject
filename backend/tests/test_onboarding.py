@@ -67,6 +67,7 @@ def test_onboarding_creates_a_complete_child_in_one_call(client, media, seeded_d
     child = r.json()
 
     assert child["communication_level"] == "words"
+    assert (child["buddy_species"], child["buddy"]) == ("pip", "Pip")  # the default friend
     assert child["sensory"] == ["motion", "sounds"]
     assert child["goals"] == ["literacy", "numeracy"]
     assert [i["label"] for i in child["interests"]] == ["trains", "dinosaurs"]
@@ -186,3 +187,11 @@ def test_image_url_guard_accepts_wikimedia_originals_and_thumbnails():
 @pytest.mark.parametrize("label,theme", [("Dinosaurs", "dino"), ("rockets", "space"), ("sharks", "ocean"), ("fire engine", "cars"), ("unicorns", None)])
 def test_free_text_interests_map_to_built_in_themes(label, theme):
     assert interest_service.infer_theme_code(label) == theme
+
+
+def test_onboarding_can_pick_a_friend_and_rejects_unknown_ones(client, media):
+    headers = _parent_headers(client)
+    r = client.post("/parent/children/onboard", headers=headers, json={**ONBOARD, "buddy_species": "waddle"})
+    assert (r.json()["buddy_species"], r.json()["buddy"]) == ("waddle", "Waddle")
+    r = client.post("/parent/children/onboard", headers=headers, json={**ONBOARD, "buddy_species": "t-rex"})
+    assert r.status_code == 400

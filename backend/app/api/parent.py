@@ -62,6 +62,8 @@ def onboard_child(req: OnboardChildRequest, user: User = Depends(get_current_use
             sensory=req.sensory,
             goals=req.goals,
             interests=[i.model_dump() for i in req.interests],
+            buddy_species=req.buddy_species,
+            buddy_name=req.buddy_name,
         )
     except ValueError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))

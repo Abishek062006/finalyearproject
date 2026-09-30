@@ -13,7 +13,21 @@ from app.db import Base
 from app.models.common import TimestampMixin, UUIDPKMixin, new_uuid
 
 
-DEFAULT_BUDDY_NAME = "Pip"
+# The on-screen learning friends (plan Phase 2): species code -> default name.
+# The app draws each one (app/src/companion/species.tsx); codes must match.
+BUDDY_SPECIES = {
+    "pip": "Pip",
+    "kiko": "Kiko",
+    "bun": "Bun",
+    "bao": "Bao",
+    "luna": "Luna",
+    "stompy": "Stompy",
+    "hoot": "Hoot",
+    "waddle": "Waddle",
+    "bolt": "Bolt",
+    "ember": "Ember",
+}
+DEFAULT_BUDDY_SPECIES = "pip"
 
 
 class User(Base, UUIDPKMixin, TimestampMixin):
@@ -49,9 +63,10 @@ class Child(Base, UUIDPKMixin, TimestampMixin):
     communication_level: Mapped[str | None] = mapped_column(String(20), nullable=True)  # sentences|words|gestures|non_speaking
     sensory: Mapped[list] = mapped_column(JSON, default=list)  # subset of sounds|lights|motion|timers
     goals: Mapped[list] = mapped_column(JSON, default=list)  # curriculum Domain codes the parent wants to focus on
-    # The on-screen friend's name (plan Phase 2). One constant character per
-    # child across every theme and session — predictability matters more to
-    # autistic children than variety. Null means the default, "Pip".
+    # The on-screen friend (plan Phase 2): one constant character per child
+    # across every theme and session — predictability matters more to autistic
+    # children than variety. A null name means the species' own name.
+    buddy_species: Mapped[str] = mapped_column(String(20), default=DEFAULT_BUDDY_SPECIES)
     buddy_name: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     guardianships: Mapped[list["Guardianship"]] = relationship(back_populates="child")
@@ -61,7 +76,7 @@ class Child(Base, UUIDPKMixin, TimestampMixin):
 
     @property
     def buddy(self) -> str:
-        return self.buddy_name or DEFAULT_BUDDY_NAME
+        return self.buddy_name or BUDDY_SPECIES.get(self.buddy_species or DEFAULT_BUDDY_SPECIES, "Pip")
 
     @property
     def companion_image_url(self) -> str | None:

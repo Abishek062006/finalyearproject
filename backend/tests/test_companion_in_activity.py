@@ -76,3 +76,25 @@ def test_an_unsafe_buddy_name_is_rejected(seeded_db, child_id):
 
     with pytest.raises(ValueError):
         parent_service.update_child_profile(seeded_db, child_id, {"buddy_name": "kill"})
+
+
+def test_choosing_a_different_friend_uses_its_own_name(seeded_db, child_id):
+    educator_service.assign_topic(seeded_db, child_id, "letters_a_e_match", user_id="test-educator")
+    parent_service.update_child_profile(seeded_db, child_id, {"buddy_species": "kiko"})
+    activity = _next(seeded_db, child_id)
+    assert activity.spec["guide_name"] == "Kiko"
+    assert "Kiko" in activity.spec["prompt_text"]
+
+
+def test_a_custom_name_survives_switching_species(seeded_db, child_id):
+    parent_service.update_child_profile(seeded_db, child_id, {"buddy_species": "ember", "buddy_name": "sparkle"})
+    parent_service.update_child_profile(seeded_db, child_id, {"buddy_species": "hoot"})
+    child = seeded_db.query(Child).filter_by(id=child_id).one()
+    assert (child.buddy_species, child.buddy) == ("hoot", "Sparkle")
+
+
+def test_an_unknown_species_is_rejected(seeded_db, child_id):
+    import pytest
+
+    with pytest.raises(ValueError):
+        parent_service.update_child_profile(seeded_db, child_id, {"buddy_species": "velociraptor"})
