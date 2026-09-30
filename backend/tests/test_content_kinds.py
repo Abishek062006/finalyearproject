@@ -94,3 +94,29 @@ def test_recording_answers_for_a_matching_activity_updates_mastery_like_any_othe
 
     mastery = seeded_db.query(MasteryState).filter_by(child_id=child_id, topic_id=activity.spec["topic_id"]).one()
     assert mastery.trials == len(activity.spec["items"])
+
+
+def test_feelings_topic_serves_emotion_faces_with_a_placeholder_prompt(seeded_db, child_id):
+    """Plan Phase 5: recognising feelings runs through the same engine."""
+    educator_service.assign_topic(seeded_db, child_id, "feelings_basic", user_id="test-educator")
+    session = session_service.start_session(seeded_db, child_id)
+    activity = session_service.next_activity(seeded_db, session.id)
+
+    assert activity.spec["activity_kind"] == "emotion_identify"
+    assert activity.spec["difficulty"] == 1
+    feelings = {item["answer"]["label"] for item in activity.spec["items"]}
+    assert feelings == {"happy", "sad"}  # level 1 contrasts just these two
+    assert all(len(item["distractors"]) == 1 for item in activity.spec["items"])
+    assert "{label}" in activity.spec["prompt_text"]
+
+
+def test_routines_topic_serves_one_whole_routine_in_order(seeded_db, child_id):
+    educator_service.assign_topic(seeded_db, child_id, "daily_routines", user_id="test-educator")
+    session = session_service.start_session(seeded_db, child_id)
+    activity = session_service.next_activity(seeded_db, session.id)
+
+    assert activity.spec["activity_kind"] == "routine_order"
+    answers = sorted((item["answer"] for item in activity.spec["items"]), key=lambda a: a["position"])
+    assert [a["label"] for a in answers] == ["Wet your hands", "Use soap", "Dry your hands"]  # level 1: washing hands
+    assert {a["routine"] for a in answers} == {"wash_hands"}
+    assert all(a["icon"] for a in answers)

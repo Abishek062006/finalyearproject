@@ -49,6 +49,8 @@ PROMPT_FIELD_BY_ACTIVITY_KIND = {
     "letter_identify": "identify_prompt_template",
     "matching": "match_prompt",
     "sequencing": "sequence_prompt",
+    "emotion_identify": "emotion_prompt_template",
+    "routine_order": "routine_prompt",
 }
 
 
@@ -337,7 +339,8 @@ class DecisionEngine:
         activity_kind = (template.config.get("activity_kind") if template else None) or "counting"
         prompt_field = PROMPT_FIELD_BY_ACTIVITY_KIND.get(activity_kind, "counting_prompt")
 
-        prompt_text = content.get(prompt_field) or content["counting_prompt"]
+        # Kinds newer than the pre-generated content bank use the bank's fallback wording.
+        prompt_text = content.get(prompt_field) or content_bank.FALLBACK.get(prompt_field) or content["counting_prompt"]
         encouragement = content["encouragement"]
         # The pre-baked content bank text names each THEME's own guide ("Turbo
         # says, find the letter B!"). The child only ever sees one friend (their

@@ -50,6 +50,20 @@ SAFE_DEFAULT_ARMS = {"try_then_correct", "tap", "break", "dino"}
 
 
 LETTERS = ["A", "B", "C", "D", "E"]
+
+# Plan Phase 5. Feelings are shown as the learning friends' own expressions
+# (app/src/companion/FeelingFace.tsx); these codes are the buddy moods.
+FEELINGS = ["happy", "sad", "angry", "scared", "surprised"]
+
+# Everyday routines, one per level (shortest first). Pictures are emoji: they
+# show the actual object (a toothbrush, not a paintbrush), which matters for
+# children who read pictures literally. The app's step-by-step guide
+# (app/src/child/routines.ts) uses the same steps — keep them in sync.
+ROUTINES = {
+    1: ("wash_hands", "Washing hands", [("Wet your hands", "💧"), ("Use soap", "🧼"), ("Dry your hands", "👐")]),
+    2: ("brush_teeth", "Brushing teeth", [("Put toothpaste on", "🪥"), ("Brush all your teeth", "🦷"), ("Spit it out", "💦"), ("Rinse the brush", "🚰")]),
+    3: ("get_dressed", "Getting dressed", [("Pants on", "👖"), ("Shirt on", "👕"), ("Socks on", "🧦"), ("Shoes on", "👟"), ("Coat on", "🧥")]),
+}
 DIFFICULTY_LEVELS = (1, 2, 3)
 
 
@@ -86,6 +100,17 @@ def leveled_items(kind: str, level: int) -> list[dict]:
         ]
     if kind == "matching":
         return [{"label": l, "distractors": []} for l in LETTERS[: level + 2]]
+    if kind == "emotion_identify":
+        # level 1: happy vs sad; 2: + angry, scared; 3: all five, three wrong faces
+        pool = FEELINGS[: (2, 4, 5)[level - 1]]
+        targets = [pool[i % len(pool)] for i in range(5)]
+        return [{"label": t, "distractors": [f for f in pool if f != t][:level]} for t in targets]
+    if kind == "routine_order":
+        code, name, steps = ROUTINES[level]
+        return [
+            {"value": i + 1, "position": i, "label": label, "icon": icon, "routine": code, "routine_label": name}
+            for i, (label, icon) in enumerate(steps)
+        ]
     if kind == "sequencing":
         return [{"value": v, "position": v - 1} for v in range(1, level + 3)]
     raise ValueError(kind)
@@ -105,8 +130,10 @@ def _add_leveled_item_sets(db, topic, kind: str, themes: dict) -> None:
             for spec in specs:
                 if kind == "counting":
                     answer, distractors = {"count": spec["count"]}, spec["distractors"]
-                elif kind in ("letter_identify", "matching"):
+                elif kind in ("letter_identify", "matching", "emotion_identify"):
                     answer, distractors = {"label": spec["label"]}, spec["distractors"]
+                elif kind == "routine_order":
+                    answer, distractors = {k: spec[k] for k in ("value", "position", "label", "icon", "routine", "routine_label")}, []
                 else:
                     answer, distractors = {"value": spec["value"], "position": spec["position"]}, []
                 db.add(
@@ -286,6 +313,37 @@ def seed_curriculum(db) -> None:
     _add_leveled_item_sets(db, numbers_sequence_topic, "sequencing", themes)
     db.flush()
 
+    seed_life_skills_topics(db, domains, themes)
+
+
+def seed_life_skills_topics(db, domains: dict, themes: dict) -> None:
+    """Plan Phase 5: feelings and everyday routines, through the same engine.
+    Separate so an existing dev database can gain these topics without being
+    wiped (scripts/add_life_skills.py)."""
+    feelings_topic = Topic(domain_id=domains["social_emotional"].id, code="feelings_basic", label="Recognising feelings", level="beginner", prerequisites=[])
+    db.add(feelings_topic)
+    db.flush()
+    for modality in ("drag_drop", "tap"):
+        db.add(
+            ActivityTemplate(
+                topic_id=feelings_topic.id, modality=modality, method_compatible=["errorless", "try_then_correct"],
+                difficulty_min=1, difficulty_max=3, config={"activity_kind": "emotion_identify"},
+            )
+        )
+    _add_leveled_item_sets(db, feelings_topic, "emotion_identify", themes)
+
+    routines_topic = Topic(domain_id=domains["functional"].id, code="daily_routines", label="Everyday routines", level="beginner", prerequisites=[])
+    db.add(routines_topic)
+    db.flush()
+    db.add(
+        ActivityTemplate(
+            topic_id=routines_topic.id, modality="tap", method_compatible=["errorless", "try_then_correct"],  # ordering is tap-to-place
+            difficulty_min=1, difficulty_max=3, config={"activity_kind": "routine_order"},
+        )
+    )
+    _add_leveled_item_sets(db, routines_topic, "routine_order", themes)
+    db.flush()
+
 
 def seed() -> None:
     Base.metadata.drop_all(bind=engine)
@@ -300,7 +358,8 @@ def seed() -> None:
         print(f"  axes:    {[a[0] for a in AXES]} + intervention (conditional)")
         print(
             "  topics:  num_1_5 (counting) + letters_a_e (letter_identify) + "
-            "letters_a_e_match (matching) + num_1_5_sequence (sequencing), "
+            "letters_a_e_match (matching) + num_1_5_sequence (sequencing) + feelings_basic (emotion_identify) + "
+            "daily_routines (routine_order), "
             f"{len(THEMES)} matched item sets per difficulty level ({len(DIFFICULTY_LEVELS)} levels) each"
         )
     finally:

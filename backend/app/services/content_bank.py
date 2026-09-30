@@ -17,6 +17,8 @@ FALLBACK = {
     "identify_prompt_template": "Find the letter {label}!",
     "match_prompt": "Match them all!",
     "sequence_prompt": "Put them in order!",
+    "emotion_prompt_template": "Find the {label} face!",
+    "routine_prompt": "What do we do first? Put the steps in order!",
     "encouragement": ["Great job!"],
 }
 
