@@ -40,11 +40,13 @@ export function ChildScreen({
   childId,
   onExit,
   childName,
+  buddySpecies,
   reduceMotion = false,
 }: {
   childId: string;
   onExit: () => void;
   childName?: string;
+  buddySpecies?: string;
   reduceMotion?: boolean;
 }) {
   const [phase, setPhase] = useState<Phase>("loading");
@@ -285,6 +287,7 @@ export function ChildScreen({
         type={activity.spec.intervention_type!}
         guideName={activity.spec.guide_name}
         imageSource={avatarImageSource}
+        species={buddySpecies}
         onDone={() => handleInterventionDone()}
       />
     );
@@ -387,7 +390,7 @@ export function ChildScreen({
         contentContainerStyle={[styles.content, { paddingTop: insets.top + GATE_CLEARANCE, paddingBottom: insets.bottom + spacing.lg }]}
       >
         <View style={styles.column}>
-          <CompanionStage buddy={buddy} holdingUri={companionUri} size={buddySize} />
+          <CompanionStage buddy={buddy} holdingUri={companionUri} size={buddySize} species={buddySpecies} />
           {sceneAndAnswer}
         </View>
       </ScrollView>

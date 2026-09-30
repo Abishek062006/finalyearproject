@@ -13,11 +13,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button, CONTENT_MAX_WIDTH, haptic, radius, spacing, springs, Text, useTheme } from "../design";
 import { api, Child, CommunicationLevel, SensoryFlag } from "../shared/api";
 import { saveChildPhoto } from "../shared/childPhotos";
+import { BuddyPicker } from "../companion/BuddyPicker";
+import { SpeciesCode } from "../companion/species";
 import { HandoverStep } from "./HandoverStep";
 import { AgeStep, CommunicationStep, DraftInterest, GoalsStep, InterestsStep, MeetCompanionStep, NameStep, SensoryStep } from "./steps";
 
-type StepId = "name" | "age" | "communication" | "interests" | "sensory" | "goals" | "meet" | "handover";
-const QUESTIONS: StepId[] = ["name", "age", "communication", "interests", "sensory", "goals"];
+type StepId = "name" | "age" | "communication" | "interests" | "sensory" | "goals" | "friend" | "meet" | "handover";
+const QUESTIONS: StepId[] = ["name", "age", "communication", "interests", "sensory", "goals", "friend"];
 const ALL: StepId[] = [...QUESTIONS, "meet", "handover"];
 
 function defaultBirth(): string {
@@ -39,6 +41,7 @@ export function OnboardingScreen({ onFinish }: { onFinish: (result: { childId: s
   const [interests, setInterests] = useState<DraftInterest[]>([]);
   const [sensory, setSensory] = useState<SensoryFlag[]>([]);
   const [goals, setGoals] = useState<string[]>([]);
+  const [buddySpecies, setBuddySpecies] = useState<SpeciesCode>("pip");
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -55,6 +58,7 @@ export function OnboardingScreen({ onFinish }: { onFinish: (result: { childId: s
     interests: true,
     sensory: true,
     goals: goals.length > 0,
+    friend: true,
     meet: true,
     handover: true,
   };
@@ -66,7 +70,8 @@ export function OnboardingScreen({ onFinish }: { onFinish: (result: { childId: s
     interests: { title: `What does ${displayName} love?`, subtitle: "Search for anything. Their favourite becomes their learning companion." },
     sensory: { title: `Does anything bother ${displayName}?`, subtitle: "We'll tune the app around it. You can change this any time." },
     goals: { title: `What should ${displayName} work on?`, subtitle: "Pick as many as you like." },
-    meet: { title: `Meet ${child?.buddy ?? "Pip"}`, subtitle: `${displayName}'s learning friend` },
+    friend: { title: `Pick ${displayName}'s learning friend`, subtitle: "They'll learn together every day. You can change this later." },
+    meet: { title: `Meet ${child?.buddy ?? "your friend"}`, subtitle: `${displayName}'s learning friend` },
     handover: { title: `Hand the tablet to ${displayName}` },
   };
 
@@ -87,6 +92,7 @@ export function OnboardingScreen({ onFinish }: { onFinish: (result: { childId: s
         sensory,
         goals,
         interests: interests.map(({ label, image_url, source_title, favourite }) => ({ label, image_url, source_title, favourite })),
+        buddy_species: buddySpecies,
       });
       if (photo) await saveChildPhoto(result.id, photo);
       setChild(result);
@@ -101,7 +107,7 @@ export function OnboardingScreen({ onFinish }: { onFinish: (result: { childId: s
   }
 
   function onPrimary() {
-    if (step === "goals") return submit();
+    if (step === "friend") return submit();
     if (step === "handover") return onFinish({ childId: child!.id, play: true });
     go(1);
   }
@@ -111,7 +117,7 @@ export function OnboardingScreen({ onFinish }: { onFinish: (result: { childId: s
   }));
 
   const primaryTitle =
-    step === "goals" ? `Set up ${displayName}'s space` : step === "handover" ? `Start ${displayName}'s first session` : step === "meet" ? "Continue" : "Continue";
+    step === "friend" ? `Set up ${displayName}'s space` : step === "handover" ? `Start ${displayName}'s first session` : step === "meet" ? "Continue" : "Continue";
 
   return (
     <KeyboardAvoidingView style={[styles.root, { backgroundColor: colors.background }]} behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -171,8 +177,15 @@ export function OnboardingScreen({ onFinish }: { onFinish: (result: { childId: s
             {step === "interests" && <InterestsStep name={name.trim()} value={interests} onChange={setInterests} />}
             {step === "sensory" && <SensoryStep value={sensory} onChange={setSensory} />}
             {step === "goals" && <GoalsStep value={goals} onChange={setGoals} />}
+            {step === "friend" && <BuddyPicker value={buddySpecies} onChange={setBuddySpecies} childName={name.trim()} />}
             {step === "meet" && child && (
-              <MeetCompanionStep name={child.nickname} buddyName={child.buddy} companionName={child.companion_name} companionImageUrl={child.companion_image_url} />
+              <MeetCompanionStep
+                name={child.nickname}
+                buddyName={child.buddy}
+                species={child.buddy_species}
+                companionName={child.companion_name}
+                companionImageUrl={child.companion_image_url}
+              />
             )}
             {step === "handover" && child && <HandoverStep child={child} />}
           </View>

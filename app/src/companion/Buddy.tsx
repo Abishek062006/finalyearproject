@@ -1,8 +1,8 @@
 /**
- * Pip, drawn entirely in code — a round, soft, friendly creature. Static
- * parts (body, ears, belly, cheeks, feet) are one SVG; moving parts (eyes,
- * brows, arms, mouth, sparkles) are separate layers driven by the shared
- * values in useBuddy.ts, so every motion runs on the UI thread.
+ * A learning friend, drawn entirely in code. The artwork for each species
+ * (Pip, Kiko the fox, Bao the panda…) comes from species.tsx; the moving parts
+ * (eyes, brows, arms, mouth, sparkles) are the same rig for all of them, driven
+ * by the shared values in useBuddy.ts, so every motion runs on the UI thread.
  *
  * Designed in a 100 × 115 unit box and scaled to `size`. Purely decorative
  * for accessibility — what Pip says is always shown as text beside it.
@@ -10,25 +10,35 @@
 import React from "react";
 import { Image, StyleSheet, View } from "react-native";
 import Animated, { interpolate, useAnimatedProps, useAnimatedStyle } from "react-native-reanimated";
-import Svg, { Circle, Ellipse, Path } from "react-native-svg";
+import Svg, { Ellipse, Path } from "react-native-svg";
+import { speciesFor } from "./species";
 import { BuddyController } from "./useBuddy";
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 const AnimatedEllipse = Animated.createAnimatedComponent(Ellipse);
 
+/** Shared by every species — the per-species palette lives in species.tsx. */
 export const BUDDY_COLORS = {
-  body: "#5CB8F2",
-  bodyShade: "#3F9FDD",
-  belly: "#E4F4FF",
   ink: "#1D2433",
-  cheek: "#FF9FB5",
   mouth: "#6B2E3E",
   tongue: "#FF8FA6",
 };
 
-export function Buddy({ buddy, size = 140, holdingUri }: { buddy: BuddyController; size?: number; holdingUri?: string | null /* the interest badge */ }) {
+export function Buddy({
+  buddy,
+  size = 140,
+  holdingUri,
+  species = "pip",
+}: {
+  buddy: BuddyController;
+  size?: number;
+  holdingUri?: string | null; // the child's favourite interest, worn as a tummy badge
+  species?: string | null;
+}) {
   const u = size / 100; // one design unit in pixels
   const v = buddy.values;
+  const kind = speciesFor(species);
+  const c = kind.colors;
 
   // ---- Whole body: breathing, hops, walking in, tilt ----
   const bodyStyle = useAnimatedStyle(() => ({
@@ -102,35 +112,45 @@ export function Buddy({ buddy, size = 140, holdingUri }: { buddy: BuddyControlle
       <Animated.View style={[styles.abs, { left: 22 * u, top: 108 * u, width: 56 * u, height: 8 * u, borderRadius: 4 * u, backgroundColor: BUDDY_COLORS.ink }, shadowStyle]} />
 
       <Animated.View style={[StyleSheet.absoluteFill, { transformOrigin: "50% 100%" }, bodyStyle]}>
+        {/* tails, wings, spikes, antennae — behind everything */}
+        {kind.back && (
+          <Svg width={size} height={118 * u} viewBox="0 0 100 118" style={styles.abs}>
+            {kind.back()}
+          </Svg>
+        )}
+
         {/* arms sit BEHIND the body so the shoulder joint is hidden */}
-        <Arm style={leftArmStyle} u={u} x={13} />
-        <Arm style={rightArmStyle} u={u} x={87} />
+        <Arm style={leftArmStyle} u={u} x={13} color={c.shade} hand={c.hand} />
+        <Arm style={rightArmStyle} u={u} x={87} color={c.shade} hand={c.hand} />
 
         <Svg width={size} height={118 * u} viewBox="0 0 100 118" style={styles.abs}>
-          <Ellipse cx={29} cy={17} rx={9} ry={11} fill={BUDDY_COLORS.bodyShade} />
-          <Ellipse cx={71} cy={17} rx={9} ry={11} fill={BUDDY_COLORS.bodyShade} />
-          <Ellipse cx={29} cy={18} rx={4.5} ry={6} fill={BUDDY_COLORS.cheek} opacity={0.55} />
-          <Ellipse cx={71} cy={18} rx={4.5} ry={6} fill={BUDDY_COLORS.cheek} opacity={0.55} />
-          <Ellipse cx={37} cy={104} rx={11} ry={6} fill={BUDDY_COLORS.bodyShade} />
-          <Ellipse cx={63} cy={104} rx={11} ry={6} fill={BUDDY_COLORS.bodyShade} />
-          <Path d="M50 12 C78 12 91 44 89 70 C87 93 71 104 50 104 C29 104 13 93 11 70 C9 44 22 12 50 12 Z" fill={BUDDY_COLORS.body} />
-          <Path d="M50 16 C66 16 76 30 79 44 C70 30 60 24 50 24 C40 24 30 30 21 44 C24 30 34 16 50 16 Z" fill="#FFFFFF" opacity={0.18} />
-          <Ellipse cx={50} cy={80} rx={25} ry={20} fill={BUDDY_COLORS.belly} />
-          <Circle cx={27} cy={62} r={6.5} fill={BUDDY_COLORS.cheek} opacity={0.5} />
-          <Circle cx={73} cy={62} r={6.5} fill={BUDDY_COLORS.cheek} opacity={0.5} />
+          {kind.body()}
+          {kind.eyeRing && (
+            <>
+              <Ellipse cx={38} cy={47} rx={6.5} ry={7.8} fill={kind.eyeRing} />
+              <Ellipse cx={62} cy={47} rx={6.5} ry={7.8} fill={kind.eyeRing} />
+            </>
+          )}
         </Svg>
 
         {/* eyes */}
         {[38, 62].map((x) => (
-          <Animated.View key={x} style={[styles.abs, at(x - 5.5, 40), { width: 11 * u, height: 14 * u, borderRadius: 6 * u, backgroundColor: BUDDY_COLORS.ink }, eyeStyle]}>
+          <Animated.View key={x} style={[styles.abs, at(x - 5.5, 40), { width: 11 * u, height: 14 * u, borderRadius: 6 * u, backgroundColor: c.eye }, eyeStyle]}>
             <View style={{ position: "absolute", left: 5.8 * u, top: 2.2 * u, width: 3.6 * u, height: 3.6 * u, borderRadius: 2 * u, backgroundColor: "#FFFFFF" }} />
             <View style={{ position: "absolute", left: 3 * u, top: 8.5 * u, width: 1.8 * u, height: 1.8 * u, borderRadius: 1 * u, backgroundColor: "#FFFFFF", opacity: 0.7 }} />
           </Animated.View>
         ))}
 
         {/* brows */}
-        <Animated.View style={[styles.abs, at(31, 32), styles.brow(u), leftBrowStyle]} />
-        <Animated.View style={[styles.abs, at(55, 32), styles.brow(u), rightBrowStyle]} />
+        <Animated.View style={[styles.abs, at(31, 32), styles.brow(u, c.brow), leftBrowStyle]} />
+        <Animated.View style={[styles.abs, at(55, 32), styles.brow(u, c.brow), rightBrowStyle]} />
+
+        {/* noses, beaks, whiskers — over the face, under the mouth */}
+        {kind.front && (
+          <Svg width={size} height={118 * u} viewBox="0 0 100 118" style={styles.abs} pointerEvents="none">
+            {kind.front()}
+          </Svg>
+        )}
 
         {/* mouth */}
         <View style={[styles.abs, at(33, 57)]}>
@@ -142,7 +162,7 @@ export function Buddy({ buddy, size = 140, holdingUri }: { buddy: BuddyControlle
 
         {/* the child's favourite interest, worn as a badge on Pip's tummy */}
         {holdingUri && (
-          <View style={[styles.abs, at(35, 70), { width: 30 * u, height: 30 * u, borderRadius: 15 * u, borderWidth: 2.2 * u, borderColor: "#FFFFFF", overflow: "hidden", backgroundColor: BUDDY_COLORS.belly }]}>
+          <View style={[styles.abs, at(35, 70), { width: 30 * u, height: 30 * u, borderRadius: 15 * u, borderWidth: 2.2 * u, borderColor: "#FFFFFF", overflow: "hidden", backgroundColor: c.belly }]}>
             <Image source={{ uri: holdingUri }} style={{ width: "100%", height: "100%" }} />
           </View>
         )}
@@ -165,7 +185,7 @@ export function Buddy({ buddy, size = 140, holdingUri }: { buddy: BuddyControlle
   );
 }
 
-function Arm({ style, u, x }: { style: object; u: number; x: number }) {
+function Arm({ style, u, x, color, hand }: { style: object; u: number; x: number; color: string; hand: string }) {
   // A soft capsule hanging from the shoulder at (x, 52); rotates about its top.
   return (
     <Animated.View
@@ -177,18 +197,18 @@ function Arm({ style, u, x }: { style: object; u: number; x: number }) {
           width: 10 * u,
           height: 30 * u,
           borderRadius: 5 * u,
-          backgroundColor: BUDDY_COLORS.bodyShade,
+          backgroundColor: color,
           transformOrigin: "50% 12%",
         },
         style,
       ]}
     >
-      <View style={{ position: "absolute", bottom: -1 * u, left: -1 * u, width: 12 * u, height: 12 * u, borderRadius: 6 * u, backgroundColor: BUDDY_COLORS.body }} />
+      <View style={{ position: "absolute", bottom: -1 * u, left: -1 * u, width: 12 * u, height: 12 * u, borderRadius: 6 * u, backgroundColor: hand }} />
     </Animated.View>
   );
 }
 
 const styles = {
   ...StyleSheet.create({ abs: { position: "absolute" } }),
-  brow: (u: number) => ({ width: 14 * u, height: 2.8 * u, borderRadius: 1.4 * u, backgroundColor: BUDDY_COLORS.ink, transformOrigin: "50% 50%" }),
+  brow: (u: number, color: string) => ({ width: 14 * u, height: 2.8 * u, borderRadius: 1.4 * u, backgroundColor: color, transformOrigin: "50% 50%" }),
 };

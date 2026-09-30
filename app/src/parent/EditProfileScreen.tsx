@@ -9,8 +9,8 @@ import { InterestSearch } from "../onboarding/InterestSearch";
 import { AgeStep, CommunicationStep, GoalsStep, SensoryStep } from "../onboarding/steps";
 import { api, Child, ChildProfilePatch } from "../shared/api";
 import { ProfileField } from "./ChildProfileScreen";
-import { Buddy } from "../companion/Buddy";
-import { useBuddy } from "../companion/useBuddy";
+import { BuddyPicker } from "../companion/BuddyPicker";
+import { speciesFor } from "../companion/species";
 
 const TITLES: Record<ProfileField, string> = {
   basics: "Name and age",
@@ -40,7 +40,8 @@ export function EditProfileScreen({ childId, field, onDone }: { childId: string;
           communication_level: c.communication_level,
           sensory: c.sensory,
           goals: c.goals,
-          buddy_name: c.buddy,
+          buddy_name: c.buddy === speciesFor(c.buddy_species).name ? "" : c.buddy,
+          buddy_species: c.buddy_species,
         });
       })
       .catch((err) => setError(err instanceof Error ? err.message : String(err)));
@@ -54,7 +55,7 @@ export function EditProfileScreen({ childId, field, onDone }: { childId: string;
         field === "basics"
           ? { nickname: draft.nickname?.trim(), birth_year_month: draft.birth_year_month }
           : field === "buddy"
-            ? { buddy_name: draft.buddy_name?.trim() ?? "" }
+            ? { buddy_species: draft.buddy_species, buddy_name: draft.buddy_name?.trim() ?? "" }
             : field === "communication"
             ? { communication_level: draft.communication_level }
             : field === "sensory"
@@ -92,7 +93,14 @@ export function EditProfileScreen({ childId, field, onDone }: { childId: string;
           <AgeStep name={draft.nickname?.trim() ?? ""} value={draft.birth_year_month ?? child.birth_year_month} onChange={(v) => setDraft({ ...draft, birth_year_month: v })} />
         </>
       )}
-      {field === "buddy" && <BuddyNameEditor name={draft.buddy_name ?? ""} onChange={(v) => setDraft({ ...draft, buddy_name: v })} />}
+      {field === "buddy" && (
+        <BuddyEditor
+          species={draft.buddy_species ?? "pip"}
+          name={draft.buddy_name ?? ""}
+          childName={child.nickname}
+          onChange={({ species, name }) => setDraft({ ...draft, buddy_species: species, buddy_name: name })}
+        />
+      )}
       {field === "communication" && (
         <CommunicationStep value={draft.communication_level ?? null} onChange={(v) => setDraft({ ...draft, communication_level: v })} />
       )}
@@ -134,26 +142,40 @@ export function EditProfileScreen({ childId, field, onDone }: { childId: string;
   );
 }
 
-/** Rename the learning friend — Pip says its new name back as you type it. */
-function BuddyNameEditor({ name, onChange }: { name: string; onChange: (v: string) => void }) {
-  const buddy = useBuddy();
-  const shown = name.trim() || "Pip";
+/** Choose the learning friend and, optionally, give it a different name. */
+function BuddyEditor({
+  species,
+  name,
+  childName,
+  onChange,
+}: {
+  species: string;
+  name: string;
+  childName: string;
+  onChange: (next: { species: string; name: string }) => void;
+}) {
+  const defaultName = speciesFor(species).name;
   return (
-    <View style={{ alignItems: "center" }}>
-      <Buddy buddy={buddy} size={150} />
-      <View style={{ alignSelf: "stretch", marginTop: spacing.lg }}>
+    <View>
+      <BuddyPicker
+        value={speciesFor(species).code}
+        displayName={name}
+        childName={childName}
+        // Switching friends drops a name that was just the old species' default.
+        onChange={(code) => onChange({ species: code, name: name.trim() === defaultName ? "" : name })}
+      />
+      <View style={{ marginTop: spacing.lg }}>
         <TextField
-          label="Name"
+          label="Name (optional)"
           value={name}
-          onChangeText={onChange}
-          onBlur={() => buddy.say(`Hi! I'm ${shown}!`, { mood: "happy" })}
+          onChangeText={(v) => onChange({ species, name: v })}
           maxLength={20}
           autoCapitalize="words"
-          placeholder="Pip"
+          placeholder={defaultName}
         />
       </View>
-      <Text variant="footnote" tone="secondary" align="center">
-        One friend, every day — the same name in every activity. Leave it empty to go back to Pip.
+      <Text variant="footnote" tone="secondary">
+        One friend, every day — the same name in every activity. Leave the name empty to use {defaultName}.
       </Text>
     </View>
   );

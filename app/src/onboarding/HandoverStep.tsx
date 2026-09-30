@@ -22,7 +22,7 @@ export function HandoverStep({ child }: { child: Child }) {
   return (
     <View style={{ alignItems: "center" }}>
       <View style={{ marginBottom: spacing.lg }}>
-        <Buddy buddy={buddy} size={130} holdingUri={child.companion_image_url ? `${API_BASE}${child.companion_image_url}` : null} />
+        <Buddy buddy={buddy} size={130} species={child.buddy_species} holdingUri={child.companion_image_url ? `${API_BASE}${child.companion_image_url}` : null} />
       </View>
       <View style={[styles.card, { backgroundColor: colors.surface }]}>
         <View style={[styles.pill, { borderColor: colors.separator }]}>

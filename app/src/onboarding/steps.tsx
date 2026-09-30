@@ -237,11 +237,13 @@ export function InterestsStep({ name, value, onChange }: { name: string; value: 
 export function MeetCompanionStep({
   name,
   buddyName,
+  species,
   companionName,
   companionImageUrl,
 }: {
   name: string;
   buddyName: string;
+  species: string;
   companionName: string | null;
   companionImageUrl: string | null;
 }) {
@@ -265,7 +267,7 @@ export function MeetCompanionStep({
 
   return (
     <View style={{ alignItems: "center" }}>
-      <Buddy buddy={buddy} size={210} holdingUri={companionImageUrl ? `${API_BASE}${companionImageUrl}` : null} />
+      <Buddy buddy={buddy} size={210} species={species} holdingUri={companionImageUrl ? `${API_BASE}${companionImageUrl}` : null} />
       <View style={[styles.bubble, { backgroundColor: colors.surface }]} accessibilityLiveRegion="polite">
         <Text variant="title3" align="center">
           “{greeting}”

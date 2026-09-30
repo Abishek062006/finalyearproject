@@ -23,11 +23,13 @@ export function InterventionScreen({
   type,
   guideName,
   imageSource,
+  species,
   onDone,
 }: {
   type: InterventionType;
   guideName: string;
   imageSource: ImageSourcePropType;
+  species?: string;
   onDone: () => void;
 }) {
   if (type === "modality_switch") {
@@ -39,7 +41,7 @@ export function InterventionScreen({
   if (type === "break") {
     return <CalmBreath onDone={onDone} />;
   }
-  return <InterestGreeting guideName={guideName} imageSource={imageSource} onDone={onDone} />;
+  return <InterestGreeting guideName={guideName} imageSource={imageSource} species={species} onDone={onDone} />;
 }
 
 // ---- mini_game: tap all 3 stars ----
@@ -74,10 +76,12 @@ function CatchStars({ onDone }: { onDone: () => void }) {
 function InterestGreeting({
   guideName,
   imageSource,
+  species,
   onDone,
 }: {
   guideName: string;
   imageSource: ImageSourcePropType;
+  species?: string;
   onDone: () => void;
 }) {
   const buddy = useBuddy();
@@ -90,7 +94,7 @@ function InterestGreeting({
   return (
     <Screen title={`${guideName} ${COPY.interest_injection.prompt}`} prompt="">
       <View style={{ marginBottom: spacing.lg }}>
-        <Buddy buddy={buddy} size={190} holdingUri={typeof imageSource === "object" && imageSource && "uri" in imageSource ? (imageSource.uri as string) : null} />
+        <Buddy buddy={buddy} size={190} species={species} holdingUri={typeof imageSource === "object" && imageSource && "uri" in imageSource ? (imageSource.uri as string) : null} />
       </View>
       <PrimaryAction
         label={COPY.interest_injection.buttonLabel}

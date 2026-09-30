@@ -178,6 +178,7 @@ function ChildSpaceRoute({ navigation, route }: Props<"ChildSpace">) {
     <ChildScreen
       childId={route.params.childId}
       childName={child?.nickname}
+      buddySpecies={child?.buddy_species}
       reduceMotion={osReduceMotion || !!child?.sensory.includes("motion")}
       onExit={() => {
         exitAllowed.current = true;

@@ -10,11 +10,21 @@ import { radius, spacing, Text, useTheme } from "../design";
 import { Buddy } from "./Buddy";
 import { BuddyController } from "./useBuddy";
 
-export function CompanionStage({ buddy, holdingUri, size = 128 }: { buddy: BuddyController; holdingUri?: string | null; size?: number }) {
+export function CompanionStage({
+  buddy,
+  holdingUri,
+  size = 128,
+  species,
+}: {
+  buddy: BuddyController;
+  holdingUri?: string | null;
+  size?: number;
+  species?: string | null;
+}) {
   const { colors } = useTheme();
   return (
     <View style={styles.row}>
-      <Buddy buddy={buddy} size={size} holdingUri={holdingUri} />
+      <Buddy buddy={buddy} size={size} holdingUri={holdingUri} species={species} />
       {buddy.caption && (
         <Animated.View
           key={buddy.caption}
