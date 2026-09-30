@@ -40,3 +40,4 @@ from app.models.experiment import (  # noqa: F401
 )
 from app.models.adults import Override, Recommendation  # noqa: F401
 from app.models.telemetry import CrashReport  # noqa: F401
+from app.models.care import CareNote, JournalEntry, LearningGoal  # noqa: F401

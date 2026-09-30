@@ -8,6 +8,8 @@ class ArmEvidence(BaseModel):
     label: str
     trials: int
     accuracy_percent: int
+    ci_low_percent: int = 0  # 95% credible interval of the estimate
+    ci_high_percent: int = 100
     is_current_winner: bool
 
 

@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api import auth, dev, educator, parent, sessions, telemetry
+from app.api import auth, care, dev, educator, parent, sessions, telemetry
 from app.config import settings
 from app.db import init_db
 
@@ -49,3 +49,4 @@ app.include_router(educator.router)
 app.include_router(sessions.router)
 app.include_router(dev.router)
 app.include_router(telemetry.router)
+app.include_router(care.router)

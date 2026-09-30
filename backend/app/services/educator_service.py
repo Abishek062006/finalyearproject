@@ -56,6 +56,8 @@ def axis_evidence(db: DBSession, child_id: str) -> list[dict]:
                     "label": arm.label,
                     "trials": post.n,
                     "accuracy_percent": round(post.mean * 100),  # for "intervention", this reads as an engagement-recovery score
+                    "ci_low_percent": round(post.ci_low * 100),  # 95% credible interval of that estimate
+                    "ci_high_percent": round(post.ci_high * 100),
                     "is_current_winner": winner is not None and winner.arm_id == arm.id,
                 }
             )
