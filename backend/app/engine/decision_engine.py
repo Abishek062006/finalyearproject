@@ -90,6 +90,9 @@ class DecisionEngine:
         self.locks = TherapistLocks(db)
         self.distress = DistressMonitor()
         self._rng = random.Random(random_seed)
+        # Its own stream, so shuffling question order never shifts the
+        # Thompson-sampling draws (research/ reproducibility).
+        self._order_rng = random.Random(None if random_seed is None else random_seed + 1)
 
     def choose_arm(self, child_id: str, axis, distress_level: float, outcome_kind: str = "immediate") -> ArmChoice:
         """Public: generic over ANY axis, including the conditionally-
@@ -144,6 +147,21 @@ class DecisionEngine:
             decision_type="explore", reason="no confirmed winner yet (Thompson sampling)",
             candidate_arm_ids=allowed_ids,
         )
+
+    def _last_content(self, child_id: str, topic_id: str) -> str | None:
+        """What this child's previous lesson on this topic asked, so the next
+        one can be different when the topic has other content."""
+        last = (
+            self.db.query(ActivityInstance)
+            .join(SessionRow, SessionRow.id == ActivityInstance.session_id)
+            .filter(SessionRow.child_id == child_id, ActivityInstance.topic_id == topic_id, ActivityInstance.item_set_id.is_not(None))
+            .order_by(ActivityInstance.started_at.desc())
+            .first()
+        )
+        if last is None:
+            return None
+        item_set = self.db.query(ItemSet).filter_by(id=last.item_set_id).one_or_none()
+        return self.experiments.content_key(item_set) if item_set else None
 
     def _recent_performance(self, child_id: str, topic_id: str) -> tuple[int, RecentPerformance]:
         """The level this child last worked at on this topic, and how that
@@ -318,7 +336,10 @@ class DecisionEngine:
             # is measured causally from a matched item set in the CHOSEN
             # theme, not inferred from which theme a child happened to click.
             item_set = self.experiments.matched_item_set(
-                topic_choice.topic_id, theme_id=chosen_theme.id if chosen_theme else None, difficulty=difficulty
+                topic_choice.topic_id,
+                theme_id=chosen_theme.id if chosen_theme else None,
+                difficulty=difficulty,
+                avoid_content=self._last_content(child_id, topic_choice.topic_id),
             )
             render_theme = chosen_theme
 
@@ -326,6 +347,8 @@ class DecisionEngine:
         if item_set is not None:
             rows = self.db.query(Item).filter_by(item_set_id=item_set.id).all()
             items = [{"id": i.id, "answer": i.answer, "distractors": i.distractors} for i in rows]
+            # Same questions, different order each time — fewer identical rounds.
+            self._order_rng.shuffle(items)
 
         render_theme_code = render_theme.code if render_theme else DEFAULT_THEME_CODE
         content = content_bank.get_theme_content(render_theme_code)

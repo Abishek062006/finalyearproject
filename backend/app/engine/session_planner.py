@@ -49,13 +49,39 @@ class SessionPlanner:
         topic_id = override.payload.get("topic_id")
         return self.db.query(Topic).filter_by(id=topic_id).one_or_none()
 
+    REST_AFTER = 2  # interleave: a topic from either of the child's last 2 lessons sits out the next one
+    SPACING_WEIGHT = 0.03  # per lesson since a topic was last practised...
+    SPACING_CAP = 12  # ...counted up to this many lessons
+
+    def _recent_topics(self, child_id: str, limit: int) -> list[str]:
+        """Topic ids of the child's most recent lessons (any session), newest first."""
+        from app.models.runtime import ActivityInstance
+        from app.models.runtime import Session as SessionRow
+
+        rows = (
+            self.db.query(ActivityInstance)
+            .join(SessionRow, SessionRow.id == ActivityInstance.session_id)
+            .filter(SessionRow.child_id == child_id)
+            .order_by(ActivityInstance.started_at.desc())
+            .limit(limit * 3)
+            .all()
+        )
+        return [a.topic_id for a in rows if not (a.spec or {}).get("is_intervention")][:limit]
+
     def next_topic(self, child_id: str) -> TopicChoice:
         """Priority order (README §9/§21/§33), all deterministic:
         1. an educator's explicit assignment, while unexpired
         2. a due revision probe (docs/PLAN.md Phase 5) — something the
            child is at risk of forgetting takes priority over new material
         3. the topic with the lowest current mastery, within the parent's
-           goal domains when any of them have topics
+           goal domains when any of them have topics — interleaved: a topic
+           from either of the child's last REST_AFTER lessons (across
+           sessions) sits out the next one, when others are available.
+           Among the rest, weaker topics come first, but a topic's priority
+           also grows the longer it hasn't been practised (spacing), so the
+           weakest two or three can't crowd everything else out. Mixing
+           topics (interleaving) and spacing them both help memory more than
+           drilling one, and endless repeats are hard going for any child.
         """
         assigned = self._active_topic_override(child_id)
         if assigned is not None:
@@ -80,7 +106,16 @@ class SessionPlanner:
             if in_goals:
                 topics = in_goals
 
-        scored = [(t, self.learner_model.get_mastery(child_id, t.id).p) for t in topics]
+        history = self._recent_topics(child_id, self.SPACING_CAP)
+        resting = set(history[: self.REST_AFTER])
+        rested = [t for t in topics if t.id not in resting]
+        if rested:
+            topics = rested
+
+        def since(topic_id: str) -> int:
+            return history.index(topic_id) if topic_id in history else self.SPACING_CAP
+
+        scored = [(t, self.learner_model.get_mastery(child_id, t.id).p - self.SPACING_WEIGHT * since(t.id)) for t in topics]
         # Tie-break on topic code, not insertion order: with more than one
         # topic now seeded (docs/PLAN.md's curriculum-breadth follow-up),
         # relying on whatever order the DB happens to return rows in for a

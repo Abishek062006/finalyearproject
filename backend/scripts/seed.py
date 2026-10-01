@@ -55,14 +55,17 @@ LETTERS = ["A", "B", "C", "D", "E"]
 # (app/src/companion/FeelingFace.tsx); these codes are the buddy moods.
 FEELINGS = ["happy", "sad", "angry", "scared", "surprised"]
 
-# Everyday routines, one per level (shortest first). Pictures are emoji: they
+# Everyday routines. Each has five real steps; a step's number is the lowest
+# difficulty level that includes it, so level 1 practises the 3 key steps,
+# level 2 four, level 3 all five — and every level can serve any routine, so
+# a child isn't handed the same one over and over. Pictures are emoji: they
 # show the actual object (a toothbrush, not a paintbrush), which matters for
 # children who read pictures literally. The app's step-by-step guide
 # (app/src/child/routines.ts) uses the same steps — keep them in sync.
 ROUTINES = {
-    1: ("wash_hands", "Washing hands", [("Wet your hands", "💧"), ("Use soap", "🧼"), ("Dry your hands", "👐")]),
-    2: ("brush_teeth", "Brushing teeth", [("Put toothpaste on", "🪥"), ("Brush all your teeth", "🦷"), ("Spit it out", "💦"), ("Rinse the brush", "🚰")]),
-    3: ("get_dressed", "Getting dressed", [("Pants on", "👖"), ("Shirt on", "👕"), ("Socks on", "🧦"), ("Shoes on", "👟"), ("Coat on", "🧥")]),
+    "wash_hands": ("Washing hands", [("Turn on the tap", "🚰", 2), ("Wet your hands", "💧", 1), ("Use soap", "🧼", 1), ("Rinse the soap off", "💦", 3), ("Dry your hands", "👐", 1)]),
+    "brush_teeth": ("Brushing teeth", [("Put toothpaste on", "🪥", 1), ("Brush all your teeth", "🦷", 1), ("Spit it out", "💦", 1), ("Rinse your mouth", "🥛", 3), ("Rinse the brush", "🚰", 2)]),
+    "get_dressed": ("Getting dressed", [("Pants on", "👖", 1), ("Shirt on", "👕", 1), ("Socks on", "🧦", 2), ("Shoes on", "👟", 1), ("Coat on", "🧥", 3)]),
 }
 DIFFICULTY_LEVELS = (1, 2, 3)
 
@@ -106,14 +109,19 @@ def leveled_items(kind: str, level: int) -> list[dict]:
         targets = [pool[i % len(pool)] for i in range(5)]
         return [{"label": t, "distractors": [f for f in pool if f != t][:level]} for t in targets]
     if kind == "routine_order":
-        code, name, steps = ROUTINES[level]
-        return [
-            {"value": i + 1, "position": i, "label": label, "icon": icon, "routine": code, "routine_label": name}
-            for i, (label, icon) in enumerate(steps)
-        ]
+        raise ValueError("routine_order has one item set per routine — use routine_items(code, level)")
     if kind == "sequencing":
         return [{"value": v, "position": v - 1} for v in range(1, level + 3)]
     raise ValueError(kind)
+
+
+def routine_items(code: str, level: int) -> list[dict]:
+    name, steps = ROUTINES[code]
+    shown = [(label, pic) for label, pic, min_level in steps if min_level <= level]
+    return [
+        {"value": i + 1, "position": i, "label": label, "icon": pic, "routine": code, "routine_label": name}
+        for i, (label, pic) in enumerate(shown)
+    ]
 
 
 def _add_leveled_item_sets(db, topic, kind: str, themes: dict) -> None:
@@ -122,8 +130,9 @@ def _add_leveled_item_sets(db, topic, kind: str, themes: dict) -> None:
     the theme differs), so the theme axis stays a fair randomized comparison
     (docs/SCHEMA.md §3) whatever level a child is working at."""
     for level in DIFFICULTY_LEVELS:
-        specs = leveled_items(kind, level)
-        for theme_code, *_ in THEMES:
+        # Routines: one set per routine at every level (same size within a level).
+        variants = [routine_items(code, level) for code in ROUTINES] if kind == "routine_order" else [leveled_items(kind, level)]
+        for specs, (theme_code, *_) in ((v, t) for v in variants for t in THEMES):
             item_set = ItemSet(topic_id=topic.id, match_group=f"{topic.code}_L{level}_v2", difficulty_mean=float(level), size=len(specs))
             db.add(item_set)
             db.flush()

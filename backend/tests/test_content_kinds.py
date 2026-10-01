@@ -117,6 +117,19 @@ def test_routines_topic_serves_one_whole_routine_in_order(seeded_db, child_id):
 
     assert activity.spec["activity_kind"] == "routine_order"
     answers = sorted((item["answer"] for item in activity.spec["items"]), key=lambda a: a["position"])
-    assert [a["label"] for a in answers] == ["Wet your hands", "Use soap", "Dry your hands"]  # level 1: washing hands
-    assert {a["routine"] for a in answers} == {"wash_hands"}
+    assert len(answers) == 3  # level 1: a routine's three key steps
+    assert len({a["routine"] for a in answers}) == 1  # one whole routine, in order
+    assert [a["position"] for a in answers] == [0, 1, 2]
     assert all(a["icon"] for a in answers)
+
+
+def test_every_level_offers_every_routine(seeded_db):
+    """Variety: level 1 isn't 'washing hands, forever'."""
+    from app.models.curriculum import Item, ItemSet, Topic
+
+    topic = seeded_db.query(Topic).filter_by(code="daily_routines").one()
+    for level in (1.0, 2.0, 3.0):
+        sets = seeded_db.query(ItemSet).filter_by(topic_id=topic.id, difficulty_mean=level).all()
+        routines = {seeded_db.query(Item).filter_by(item_set_id=s.id).first().answer["routine"] for s in sets}
+        assert routines == {"wash_hands", "brush_teeth", "get_dressed"}
+        assert len({s.size for s in sets}) == 1  # still matched: same size within a level

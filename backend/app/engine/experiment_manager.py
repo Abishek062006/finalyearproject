@@ -38,7 +38,17 @@ class ExperimentManager:
     def arms_for(self, axis_id: str) -> list[Arm]:
         return self.db.query(Arm).filter_by(axis_id=axis_id).all()
 
-    def matched_item_set(self, topic_id: str, theme_id: str | None = None, difficulty: int | None = None) -> ItemSet | None:
+    @staticmethod
+    def content_key(item_set: ItemSet) -> str:
+        """What a set actually asks (its answers), ignoring theme — two sets
+        with the same key would look like the same lesson to the child."""
+        import json
+
+        return json.dumps(sorted(json.dumps(i.answer, sort_keys=True) for i in item_set.items))
+
+    def matched_item_set(
+        self, topic_id: str, theme_id: str | None = None, difficulty: int | None = None, avoid_content: str | None = None
+    ) -> ItemSet | None:
         """Returns one matched item set for the topic (optionally themed, and
         at the requested difficulty level — or the nearest level the topic
         has). All sets sharing a match_group are equal size / difficulty
@@ -51,6 +61,11 @@ class ExperimentManager:
             themed = [s for s in candidates if any(i.theme_id == theme_id for i in s.items)]
             if themed:
                 candidates = themed
+        if avoid_content is not None:
+            # Variety: not the same lesson as last time, when there is another.
+            fresh = [c for c in candidates if self.content_key(c) != avoid_content]
+            if fresh:
+                candidates = fresh
         return self._rng.choice(candidates) if candidates else None
 
     def random_seed_value(self) -> int:
