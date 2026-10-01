@@ -30,23 +30,25 @@ from app.models.identity import Child, EducatorLink, Guardianship, User  # noqa:
 from app.models.runtime import ActivityInstance, ChildSignal, Interaction  # noqa: E402
 from app.models.runtime import Session as SessionModel  # noqa: E402
 from app.services import care_service, parent_service, session_service, signal_service  # noqa: E402
+from app.engine.decision_engine import DecisionEngine  # noqa: E402
 from app.engine.learner_model import LearnerModel  # noqa: E402
 
 DEMO_PASSWORD = "aura-demo-2026"
 PARENT_EMAIL = "demo.parent@aura-dev.com"
 TEACHER_EMAIL = "demo.teacher@aura-dev.com"
+ENGINE_SEED = 1  # a fixed seed makes the demo history the same on every run
 DAYS = 14
 SESSIONS_PER_DAY = 2
 ACTIVITIES_PER_SESSION = 3
 
 
-def _play_session(db, child_id: str, sim, day: datetime, rng: random.Random) -> None:
+def _play_session(db, child_id: str, sim, day: datetime, rng: random.Random, engine) -> None:
     learner = LearnerModel(db)
     session = session_service.start_session(db, child_id)
     sim.reset_daily_distress()
     trial = 0
     for _ in range(ACTIVITIES_PER_SESSION):
-        activity = session_service.next_activity(db, session.id)
+        activity = session_service.next_activity(db, session.id, engine=engine)
         spec = activity.spec
         if spec["is_intervention"]:
             sim.apply_intervention_relief(spec.get("intervention_type"))
@@ -112,6 +114,7 @@ def main() -> None:
         db.commit()
 
         sim = generate_population(1, seed=7)[0].clone_for_condition(7)
+        engine = DecisionEngine(db, random_seed=ENGINE_SEED)
         today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
         for d in range(DAYS, 0, -1):
             day = today - timedelta(days=d - 1)
@@ -122,7 +125,7 @@ def main() -> None:
                 when = day + timedelta(hours=9 + s * 7, minutes=rng.randint(0, 40))
                 # today's sessions must already have happened
                 when = min(when, now - timedelta(minutes=45 * (SESSIONS_PER_DAY - s)))
-                _play_session(db, child.id, sim, when, rng)
+                _play_session(db, child.id, sim, when, rng, engine)
             care_service.save_journal_entry(
                 db, child.id, parent.id, day.date().isoformat(),
                 sleep_hours=rng.choice([8, 8.5, 9, 9.5, 10, 10.5, 7.5]), mood=rng.choice([3, 4, 4, 5, 2]),
