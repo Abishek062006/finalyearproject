@@ -1,0 +1,9 @@
+# Install PyTorch first, matching your machine (see ml/README.md), then: pip install -r ml/requirements.txt
+numpy
+scipy
+pillow
+py7zr
+opencv-python-headless
+onnx
+onnxruntime
+matplotlib

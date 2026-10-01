@@ -24,3 +24,9 @@ npm-debug.log*
 
 # Third-party datasets: their licences forbid redistribution (e.g. Saliency4ASD UsageAgreement.txt).
 datasets/
+
+# Phase 7 ML: environment, trained weights, and anything that shows dataset images
+ml/.venv/
+ml/checkpoints/
+ml/cache/
+ml/private/
