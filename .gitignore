@@ -30,3 +30,5 @@ ml/.venv/
 ml/checkpoints/
 ml/cache/
 ml/private/
+ml/results/*smoke*
+ml/results/*SMOKE*

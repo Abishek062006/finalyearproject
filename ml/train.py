@@ -1,24 +1,21 @@
 """
-5-fold cross-validated training and evaluation of autism-specific attention
-prediction on Saliency4ASD.
+5-fold cross-validated training on Saliency4ASD (300 images; each fold
+trains on 240 and tests on 60 images it never saw).
 
-Per fold (240 training images, 60 test images never seen in training):
-  TD        ImageNet init → trained on typically developing children's gaze
-  ASD       ImageNet init → trained on autistic children's gaze
-  TD→ASD    the TD model, fine-tuned on autistic children's gaze  (ours)
-Baselines, scored on the same splits:
-  Centre    the average fixation map of the training images (a strong
-            "look at the middle" prior)
-  SpecRes   spectral residual saliency (Hou & Zhang, CVPR 2007), a classic
-            bottom-up model with no learning
+Models compared on the same splits:
+  Centre      average fixation map of the training images (strong prior)
+  SpecRes     spectral residual saliency (Hou & Zhang, CVPR 2007)
+  TD-only     one network trained on typically developing children's gaze
+  ASD-only    one network trained on autistic children's gaze
+  Dual        OURS (model.DualSaliencyNet): typical attention + an explicit
+              difference head, trained on both groups' gaze at once
 
-Every model is scored at the original image resolution against BOTH groups'
-real fixations, with the six standard metrics (metrics.py).
+Robust for long unattended runs: resumes from the last finished fold,
+uses mixed precision on NVIDIA GPUs, halves the batch if the GPU runs out
+of memory, and prints ASCII only (Windows consoles).
 
-    ml/.venv/bin/python -m ml.train            (from the repo root)
-
-Writes ml/results/saliency_results.{json,md}; held-out predictions go to
-ml/cache/ for the target-attention study (target_attention.py).
+Settings via environment variables: AURA_BATCH (default 8), AURA_SMOKE=1
+(a few-minute end-to-end check on 24 images, 2 folds, 1 epoch).
 """
 import json
 import os
@@ -30,14 +27,31 @@ import numpy as np
 import torch
 
 from ml import data
-from ml.metrics import METRICS, all_metrics
-from ml.model import SaliencyNet, saliency_loss
+from ml.model import ENCODER_PREFIXES, DualSaliencyNet, SaliencyNet, saliency_loss
 
-RESULTS = Path(__file__).resolve().parent / "results"
-CKPT = Path(__file__).resolve().parent / "checkpoints"
+HERE = Path(__file__).resolve().parent
+RESULTS = HERE / "results"
+CKPT = HERE / "checkpoints"
+SMOKE = os.environ.get("AURA_SMOKE") == "1"
 SEED = 0
-EPOCHS = {"TD": 20, "ASD": 20, "TD→ASD": 12}
-BATCH = int(os.environ.get("AURA_BATCH", "8"))  # lower it if the GPU runs out of memory
+N_FOLDS = 2 if SMOKE else 5
+EPOCHS = {"single": 1, "dual": 1} if SMOKE else {"single": 20, "dual": 24}
+DIFF_PENALTY = 1e-3  # keeps the difference head to what is really different
+MODELS = ["Centre", "SpecRes", "TD-only", "ASD-only", "Dual"]
+
+_t0 = time.time()
+_logf = None
+
+
+def log(msg: str) -> None:
+    global _logf
+    if _logf is None:
+        RESULTS.mkdir(exist_ok=True)
+        _logf = open(RESULTS / ("smoke_log.txt" if SMOKE else "train_log.txt"), "a", encoding="utf-8")
+    line = f"[{time.time() - _t0:7.0f}s] {msg}"
+    print(line.encode("ascii", "replace").decode(), flush=True)
+    _logf.write(line + "\n")
+    _logf.flush()
 
 
 def device() -> torch.device:
@@ -47,158 +61,184 @@ def device() -> torch.device:
     return torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 
 
-def _batches(idx: np.ndarray, rng: np.random.Generator):
-    idx = rng.permutation(idx)
-    for k in range(0, len(idx), BATCH):
-        yield idx[k : k + BATCH]
+def arrays_for_run() -> dict:
+    a = data.training_arrays()
+    if SMOKE:
+        a = {k: v[:24] for k, v in a.items()}
+    return a
 
 
-def train_model(arrays, train_idx, group: str, epochs: int, init: SaliencyNet | None, seed: int, log) -> SaliencyNet:
+def _param_groups(net, lr: float):
+    enc = [p for n, p in net.named_parameters() if n.startswith(ENCODER_PREFIXES)]
+    dec = [p for n, p in net.named_parameters() if not n.startswith(ENCODER_PREFIXES)]
+    return [{"params": enc, "lr": lr}, {"params": dec, "lr": lr * 10}]
+
+
+def _fit(net, arrays, idx: np.ndarray, epochs: int, seed: int, step_loss, name: str):
+    """Shared training loop. step_loss(net, x, batch_indices, flipped) -> loss."""
     torch.manual_seed(seed)
     dev = device()
-    net = init if init is not None else SaliencyNet()
     net.to(dev).train()
-    enc = [p for n, p in net.named_parameters() if n.split(".")[0] in ("stem", "l2", "l3", "l4")]
-    dec = [p for n, p in net.named_parameters() if n.split(".")[0] not in ("stem", "l2", "l3", "l4")]
-    lr_scale = 0.5 if init is not None else 1.0  # gentler when fine-tuning
-    opt = torch.optim.Adam([{"params": enc, "lr": 1e-4 * lr_scale}, {"params": dec, "lr": 1e-3 * lr_scale}])
+    opt = torch.optim.Adam(_param_groups(net, 1e-4))
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=epochs)
+    use_amp = dev.type == "cuda"
+    scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
+    images = torch.from_numpy(arrays["images"]).permute(0, 3, 1, 2)
     rng = np.random.default_rng(seed)
-    images = torch.from_numpy(arrays["images"]).permute(0, 3, 1, 2).float() / 255.0
-    dens = torch.from_numpy(arrays[f"{group}_density"])
-    fixs = torch.from_numpy(arrays[f"{group}_fix"])
-    for ep in range(epochs):
-        total, n = 0.0, 0
-        for b in _batches(train_idx, rng):
-            x, d, f = images[b], dens[b], fixs[b]
-            if rng.random() < 0.5:  # horizontal flip
-                x, d, f = x.flip(-1), d.flip(-1), f.flip(-1)
-            x, d, f = x.to(dev), d.to(dev), f.to(dev)
-            loss = saliency_loss(net(x), d, f)
-            opt.zero_grad()
-            loss.backward()
-            opt.step()
-            total += loss.item() * len(b)
-            n += len(b)
-        sched.step()
-        log(f"    {group} epoch {ep + 1}/{epochs} loss {total / n:.4f}")
+    batch = int(os.environ.get("AURA_BATCH", "8"))
+    ep = 0
+    while ep < epochs:
+        try:
+            order = rng.permutation(idx)
+            total = 0.0
+            for k in range(0, len(order), batch):
+                b = order[k : k + batch]
+                flip = bool(rng.random() < 0.5)
+                x = images[b].float().div(255)
+                if flip:
+                    x = x.flip(-1)
+                x = x.to(dev)
+                with torch.autocast(device_type="cuda", dtype=torch.float16, enabled=use_amp):
+                    loss = step_loss(net, x, b, flip)
+                opt.zero_grad(set_to_none=True)
+                scaler.scale(loss).backward()
+                scaler.step(opt)
+                scaler.update()
+                total += float(loss) * len(b)
+            sched.step()
+            ep += 1
+            log(f"    {name} epoch {ep}/{epochs} loss {total / len(order):.4f}")
+        except torch.cuda.OutOfMemoryError:
+            if batch == 1:
+                raise
+            torch.cuda.empty_cache()
+            batch = max(1, batch // 2)
+            log(f"    GPU out of memory - retrying epoch {ep + 1} with batch {batch}")
     return net.eval()
 
 
-@torch.no_grad()
-def predict(net: SaliencyNet, arrays, idx: np.ndarray) -> np.ndarray:
+def _targets(arrays, group: str, b: np.ndarray, flip: bool, dev):
+    d = torch.from_numpy(arrays[f"{group}_density"][b])
+    f = torch.from_numpy(arrays[f"{group}_fix"][b])
+    if flip:
+        d, f = d.flip(-1), f.flip(-1)
+    return d.to(dev), f.to(dev)
+
+
+def train_single(arrays, idx, group: str, seed: int) -> SaliencyNet:
     dev = device()
-    out = []
-    for k in range(0, len(idx), 16):
-        x = torch.from_numpy(arrays["images"][idx[k : k + 16]]).permute(0, 3, 1, 2).float().to(dev) / 255.0
-        out.append(net(x).exp().cpu().numpy())
-    return np.concatenate(out)
+
+    def step(net, x, b, flip):
+        d, f = _targets(arrays, group, b, flip, dev)
+        return saliency_loss(net(x), d, f)
+
+    return _fit(SaliencyNet(), arrays, idx, EPOCHS["single"], seed, step, f"{group}-only")
+
+
+def train_dual(arrays, idx, seed: int) -> DualSaliencyNet:
+    dev = device()
+
+    def step(net, x, b, flip):
+        asd_logp, td_logp, diff = net(x, with_diff=True)
+        da, fa = _targets(arrays, "ASD", b, flip, dev)
+        dt, ft = _targets(arrays, "TD", b, flip, dev)
+        return saliency_loss(asd_logp, da, fa) + saliency_loss(td_logp, dt, ft) + DIFF_PENALTY * diff.float().abs().mean()
+
+    return _fit(DualSaliencyNet(), arrays, idx, EPOCHS["dual"], seed, step, "Dual")
+
+
+@torch.no_grad()
+def predict(net, arrays, idx: np.ndarray) -> dict[str, np.ndarray]:
+    """Probability maps, averaged with the horizontally flipped image (test-time augmentation)."""
+    dev = device()
+    out: dict[str, list] = {}
+    for k in range(0, len(idx), 8):
+        x = torch.from_numpy(arrays["images"][idx[k : k + 8]]).permute(0, 3, 1, 2).float().div(255).to(dev)
+        if isinstance(net, DualSaliencyNet):
+            a1, t1, d1 = net(x, with_diff=True)
+            a2, t2, d2 = net(x.flip(-1), with_diff=True)
+            parts = {"ASD": (a1.exp() + a2.exp().flip(-1)) / 2, "TD": (t1.exp() + t2.exp().flip(-1)) / 2, "DIFF": (d1 + d2.flip(-1)) / 2}
+        else:
+            parts = {"map": (net(x).exp() + net(x.flip(-1)).exp().flip(-1)) / 2}
+        for key, v in parts.items():
+            out.setdefault(key, []).append(v.float().cpu().numpy())
+    return {k: np.concatenate(v) for k, v in out.items()}
 
 
 def spectral_residual(img: np.ndarray) -> np.ndarray:
-    """Hou & Zhang (2007): saliency = what's left of the log spectrum after
-    removing its smooth average."""
     g = cv2.resize(cv2.cvtColor(img, cv2.COLOR_RGB2GRAY), (64, 64)).astype(np.float64)
     f = np.fft.fft2(g)
-    log_amp = np.log(np.abs(f) + 1e-8)
-    phase = np.angle(f)
-    residual = log_amp - cv2.blur(log_amp, (3, 3))
-    sal = np.abs(np.fft.ifft2(np.exp(residual + 1j * phase))) ** 2
-    sal = cv2.GaussianBlur(sal, (9, 9), 2.5)
-    return cv2.resize(sal.astype(np.float32), data.TRAIN_HW[::-1])
+    residual = np.log(np.abs(f) + 1e-8) - cv2.blur(np.log(np.abs(f) + 1e-8), (3, 3))
+    sal = np.abs(np.fft.ifft2(np.exp(residual + 1j * np.angle(f)))) ** 2
+    return cv2.resize(cv2.GaussianBlur(sal, (9, 9), 2.5).astype(np.float32), data.TRAIN_HW[::-1])
 
 
-def _norm_points(ids, group):
-    """Each image's fixations as (y/H, x/W) — reused as sAUC negatives for other images."""
-    pts = {}
-    for i in ids:
-        f = data.load_fixations(int(i), group)
-        ys, xs = np.nonzero(f)
-        pts[int(i)] = np.stack([ys / f.shape[0], xs / f.shape[1]], 1)
-    return pts
+PRED_KEYS = ["Centre", "SpecRes", "TD-only", "ASD-only", "Dual-ASD", "Dual-TD", "Dual-DIFF"]
 
 
-def evaluate(pred_lowres: np.ndarray, image_id: int, group: str, others: np.ndarray) -> dict:
-    density = data.load_density(image_id, group)
-    fix = data.load_fixations(image_id, group)
-    h, w = density.shape
-    sal = cv2.resize(pred_lowres.astype(np.float32), (w, h), interpolation=cv2.INTER_LINEAR)
-    other_fix = np.zeros((h, w), bool)
-    other_fix[(others[:, 0] * h).astype(int).clip(0, h - 1), (others[:, 1] * w).astype(int).clip(0, w - 1)] = True
-    return all_metrics(sal, density, fix, other_fix)
+def preds_path() -> Path:
+    return data.CACHE / ("cv_predictions_smoke.npz" if SMOKE else "cv_predictions.npz")
 
 
-def main() -> None:
-    t0 = time.time()
-    RESULTS.mkdir(exist_ok=True)
+def run_cross_validation() -> dict[str, np.ndarray]:
+    """Trains every fold (skipping folds already finished) and returns held-out predictions."""
+    arrays = arrays_for_run()
+    n = len(arrays["ids"])
+    fold_idx = data.folds(n, N_FOLDS, SEED)
     CKPT.mkdir(exist_ok=True)
-    log_file = open(RESULTS / "train_log.txt", "w")
-
-    def log(msg: str) -> None:
-        line = f"[{time.time() - t0:7.0f}s] {msg}"
-        print(line, flush=True)
-        log_file.write(line + "\n")
-        log_file.flush()
-
-    arrays = data.training_arrays()
-    ids = arrays["ids"]
-    n = len(ids)
-    fold_idx = data.folds(n, 5, SEED)
-    points = {g: _norm_points(ids, g) for g in data.GROUPS}
-    models = ["Centre", "SpecRes", "TD", "ASD", "TD→ASD"]
-    preds = {m: np.zeros((n, *data.TRAIN_HW), np.float32) for m in models}
-    log(f"device={device()}  images={n}  folds={[len(f) for f in fold_idx]}")
+    path = preds_path()
+    if path.exists():
+        saved = dict(np.load(path))
+        preds = {k: saved[k] for k in PRED_KEYS}
+        done = set(saved["done_folds"].tolist())
+    else:
+        preds = {k: np.zeros((n, *data.TRAIN_HW), np.float32) for k in PRED_KEYS}
+        done = set()
+    log(f"device={device()} images={n} folds={N_FOLDS} done={sorted(done)} smoke={SMOKE}")
 
     for f, test in enumerate(fold_idx):
+        if f in done:
+            continue
         train = np.setdiff1d(np.arange(n), test)
-        log(f"fold {f + 1}/5: train {len(train)}, test {len(test)}")
+        log(f"fold {f + 1}/{N_FOLDS}: train {len(train)}, test {len(test)}")
         centre = arrays["ASD_density"][train].mean(0) + arrays["TD_density"][train].mean(0)
         for k in test:
             preds["Centre"][k] = centre
             preds["SpecRes"][k] = spectral_residual(arrays["images"][k])
-        td = train_model(arrays, train, "TD", EPOCHS["TD"], None, SEED + f, log)
-        preds["TD"][test] = predict(td, arrays, test)
-        torch.save(td.state_dict(), CKPT / f"td_fold{f}.pt")
-        asd = train_model(arrays, train, "ASD", EPOCHS["ASD"], None, SEED + 100 + f, log)
-        preds["ASD"][test] = predict(asd, arrays, test)
-        tuned = train_model(arrays, train, "ASD", EPOCHS["TD→ASD"], td, SEED + 200 + f, log)
-        preds["TD→ASD"][test] = predict(tuned, arrays, test)
-        torch.save(tuned.state_dict(), CKPT / f"td2asd_fold{f}.pt")
-        np.savez_compressed(data.CACHE / "heldout_predictions.npz", ids=ids, folds=np.array([np.isin(np.arange(n), t) * (i + 1) for i, t in enumerate(fold_idx)]).sum(0), **{m.replace("→", "2"): p for m, p in preds.items()})
+        td = train_single(arrays, train, "TD", SEED + f)
+        preds["TD-only"][test] = predict(td, arrays, test)["map"]
+        torch.save(td.state_dict(), CKPT / f"tdonly_fold{f}.pt")
+        asd = train_single(arrays, train, "ASD", SEED + 100 + f)
+        preds["ASD-only"][test] = predict(asd, arrays, test)["map"]
+        torch.save(asd.state_dict(), CKPT / f"asdonly_fold{f}.pt")
+        dual = train_dual(arrays, train, SEED + 200 + f)
+        p = predict(dual, arrays, test)
+        preds["Dual-ASD"][test], preds["Dual-TD"][test], preds["Dual-DIFF"][test] = p["ASD"], p["TD"], p["DIFF"]
+        torch.save(dual.state_dict(), CKPT / f"dual_fold{f}.pt")
+        done.add(f)
+        fold_of = np.zeros(n, int)
+        for i, t in enumerate(fold_idx):
+            fold_of[t] = i
+        np.savez_compressed(path, ids=arrays["ids"], fold_of=fold_of, done_folds=np.array(sorted(done)), **preds)
+        log(f"fold {f + 1} saved")
+        del td, asd, dual
+        if device().type == "cuda":
+            torch.cuda.empty_cache()
+    return preds
 
-    log("evaluating at original resolution against both groups' real gaze …")
-    per_image = {}
-    for m in models:
-        for g in data.GROUPS:
-            rows = []
-            for k, i in enumerate(ids):
-                others = np.concatenate([p for j, p in points[g].items() if j != int(i)])
-                rows.append(evaluate(preds[m][k], int(i), g, others))
-            per_image[f"{m}|{g}"] = rows
-            means = {mt: float(np.nanmean([r[mt] for r in rows])) for mt in METRICS}
-            log(f"  {m:8s} vs {g}: " + "  ".join(f"{k} {v:.3f}" for k, v in means.items()))
 
-    summary = {
-        key: {mt: {"mean": float(np.nanmean([r[mt] for r in rows])), "sd": float(np.nanstd([r[mt] for r in rows]))} for mt in METRICS}
-        for key, rows in per_image.items()
-    }
-    json.dump({"summary": summary, "per_image": per_image, "image_ids": [int(i) for i in ids], "epochs": EPOCHS, "seed": SEED}, open(RESULTS / "saliency_results.json", "w"))
-
-    lines = [
-        "# Autism-specific attention prediction — Saliency4ASD, 5-fold cross-validation",
-        "",
-        "Every number is on images the model never saw in training (60 per fold, all 300 covered). ↑ higher is better, ↓ lower is better.",
-        "",
-    ]
-    for g in data.GROUPS:
-        lines += [f"## Predicting {'autistic (ASD)' if g == 'ASD' else 'typically developing (TD)'} children's gaze", "", "| Model | " + " | ".join(f"{m} {'↓' if m == 'KLD' else '↑'}" for m in METRICS) + " |", "|---|" + "---|" * len(METRICS)]
-        for m in models:
-            s = summary[f"{m}|{g}"]
-            lines.append(f"| {m} | " + " | ".join(f"{s[mt]['mean']:.3f}" for mt in METRICS) + " |")
-        lines.append("")
-    (RESULTS / "saliency_results.md").write_text("\n".join(lines))
-    log("done")
+def train_final_model() -> Path:
+    """The deployable model: Dual trained on all images (no held-out set)."""
+    out = CKPT / ("dual_final_smoke.pt" if SMOKE else "dual_final.pt")
+    if out.exists():
+        return out
+    arrays = arrays_for_run()
+    log("final model: Dual on all images")
+    net = train_dual(arrays, np.arange(len(arrays["ids"])), SEED + 999)
+    torch.save(net.state_dict(), out)
+    return out
 
 
 if __name__ == "__main__":
-    main()
+    run_cross_validation()
+    train_final_model()
