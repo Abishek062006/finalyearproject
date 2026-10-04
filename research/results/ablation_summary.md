@@ -1,7 +1,7 @@
 | Ablation | Cumulative regret ↓ | Activities to mastery ↓ | 7-day retention % ↑ | Activities to correct decision ↓ | Distress events ↓ | Engagement recovery % ↑ |
 |---|---|---|---|---|---|---|
-| full_aura | 8.74 ± 9.79 | 37.5 ± 53.9 activities (44/48 converged) | 90.56 ± 16.44 | 46.8 ± 8.0 activities (14/48 converged) | 0.75 ± 2.30 | 97% (n=8) |
-| no_hierarchical_prior | 8.44 ± 6.78 | 21.9 ± 33.9 activities (44/48 converged) | 93.09 ± 11.73 | 53.1 ± 6.0 activities (14/48 converged) | 0.46 ± 1.21 | 87% (n=5) |
-| no_early_predictor | 32.06 ± 17.61 | 28.2 ± 43.6 activities (38/48 converged) | 73.92 ± 33.05 | 58.2 ± 0.8 activities (4/48 converged) | 2.56 ± 3.39 | 85% (n=16) |
-| no_safety_layer | 8.74 ± 9.79 | 37.5 ± 53.9 activities (44/48 converged) | 90.56 ± 16.44 | 46.8 ± 8.0 activities (14/48 converged) | 0.75 ± 2.30 | 97% (n=8) |
+| full_aura | 7.80 ± 8.93 | 31.9 ± 51.3 activities (45/48 converged) | 83.37 ± 25.56 | 41.3 ± 17.4 activities (17/48 converged) | 0.40 ± 0.91 | 100% (n=4) |
+| no_hierarchical_prior | 9.18 ± 10.02 | 39.4 ± 58.2 activities (45/48 converged) | 90.50 ± 16.66 | 46.6 ± 15.1 activities (13/48 converged) | 0.52 ± 1.14 | 71% (n=8) |
+| no_early_predictor | 31.35 ± 19.85 | 22.5 ± 28.1 activities (38/48 converged) | 85.69 ± 23.93 | 57.0 ± 0.8 activities (3/48 converged) | 2.12 ± 3.90 | 75% (n=12) |
+| no_safety_layer | 7.80 ± 8.93 | 31.9 ± 51.3 activities (45/48 converged) | 83.37 ± 25.56 | 41.3 ± 17.4 activities (17/48 converged) | 0.40 ± 0.91 | 100% (n=4) |
 | no_randomization | 21.69 ± 23.84 | 23.1 ± 34.6 activities (38/48 converged) | 81.65 ± 26.88 | 5.2 ± 9.1 activities (4/48 converged) | 0.75 ± 1.84 | 100% (n=6) |

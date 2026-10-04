@@ -10,51 +10,51 @@ Every test here is PAIRED — each simulated child faced every condition as a cl
 
 | vs AURA | n pairs | mean (AURA) | mean (other) | mean diff | Cohen's d_z | t-test p | Holm-adjusted | Wilcoxon p | Holm-adjusted |
 |---|---|---|---|---|---|---|---|---|---|
-| static | 80 | 8.30 | 25.09 | -16.79 | -0.71 | 0.0000 | 0.0000 **significant** | 0.0000 | 0.0000 |
-| heuristic_adaptive | 80 | 8.30 | 11.70 | -3.39 | -0.28 | 0.0143 | 0.0143 **significant** | 0.0518 | 0.0518 |
-| correlational | 80 | 8.30 | 21.25 | -12.95 | -0.62 | 0.0000 | 0.0000 **significant** | 0.0001 | 0.0004 |
-| population_level | 80 | 8.30 | 20.54 | -12.24 | -0.52 | 0.0000 | 0.0000 **significant** | 0.0013 | 0.0039 |
-| expert_manual | 80 | 8.30 | 15.40 | -7.09 | -0.43 | 0.0003 | 0.0006 **significant** | 0.0066 | 0.0132 |
+| static | 80 | 7.13 | 25.09 | -17.97 | -0.72 | 0.0000 | 0.0000 **significant** | 0.0000 | 0.0000 |
+| heuristic_adaptive | 80 | 7.13 | 11.70 | -4.57 | -0.37 | 0.0014 | 0.0014 **significant** | 0.0036 | 0.0036 |
+| correlational | 80 | 7.13 | 21.25 | -14.13 | -0.64 | 0.0000 | 0.0000 **significant** | 0.0000 | 0.0001 |
+| population_level | 80 | 7.13 | 20.54 | -13.42 | -0.56 | 0.0000 | 0.0000 **significant** | 0.0007 | 0.0013 |
+| expert_manual | 80 | 7.13 | 15.40 | -8.27 | -0.48 | 0.0000 | 0.0001 **significant** | 0.0002 | 0.0006 |
 
 **7-day retention % (higher is better)** — paired t-test and Wilcoxon signed-rank, Holm-adjusted across these 5 comparisons.
 
 | vs AURA | n pairs | mean (AURA) | mean (other) | mean diff | Cohen's d_z | t-test p | Holm-adjusted | Wilcoxon p | Holm-adjusted |
 |---|---|---|---|---|---|---|---|---|---|
-| static | 80 | 91.08 | 71.76 | +19.32 | 0.52 | 0.0000 | 0.0001 **significant** | 0.0000 | 0.0002 |
-| heuristic_adaptive | 80 | 91.08 | 88.51 | +2.57 | 0.13 | 0.2443 | 0.2443 | 0.2380 | 0.2380 |
-| correlational | 80 | 91.08 | 75.82 | +15.26 | 0.44 | 0.0002 | 0.0008 **significant** | 0.0003 | 0.0010 |
-| population_level | 80 | 91.08 | 79.66 | +11.43 | 0.38 | 0.0012 | 0.0035 **significant** | 0.0009 | 0.0027 |
-| expert_manual | 80 | 91.08 | 80.58 | +10.50 | 0.35 | 0.0022 | 0.0045 **significant** | 0.0018 | 0.0037 |
+| static | 80 | 87.00 | 71.76 | +15.25 | 0.44 | 0.0002 | 0.0010 **significant** | 0.0003 | 0.0014 |
+| heuristic_adaptive | 80 | 87.00 | 88.51 | -1.51 | -0.07 | 0.5356 | 0.5356 | 0.5481 | 0.5481 |
+| correlational | 80 | 87.00 | 75.82 | +11.19 | 0.31 | 0.0069 | 0.0278 **significant** | 0.0038 | 0.0154 |
+| population_level | 80 | 87.00 | 79.66 | +7.35 | 0.23 | 0.0429 | 0.0857 | 0.0239 | 0.0478 |
+| expert_manual | 80 | 87.00 | 80.58 | +6.42 | 0.25 | 0.0253 | 0.0759 | 0.0147 | 0.0441 |
 
 **Distress events (lower is better)** — paired t-test and Wilcoxon signed-rank, Holm-adjusted across these 5 comparisons.
 
 | vs AURA | n pairs | mean (AURA) | mean (other) | mean diff | Cohen's d_z | t-test p | Holm-adjusted | Wilcoxon p | Holm-adjusted |
 |---|---|---|---|---|---|---|---|---|---|
-| static | 80 | 0.44 | 3.21 | -2.77 | -0.59 | 0.0000 | 0.0000 **significant** | 0.0000 | 0.0000 |
-| heuristic_adaptive | 80 | 0.44 | 0.88 | -0.44 | -0.27 | 0.0171 | 0.0171 **significant** | 0.0090 | 0.0090 |
-| correlational | 80 | 0.44 | 2.62 | -2.19 | -0.49 | 0.0000 | 0.0001 **significant** | 0.0000 | 0.0001 |
-| population_level | 80 | 0.44 | 2.65 | -2.21 | -0.44 | 0.0002 | 0.0006 **significant** | 0.0006 | 0.0012 |
-| expert_manual | 80 | 0.44 | 1.91 | -1.48 | -0.43 | 0.0003 | 0.0006 **significant** | 0.0001 | 0.0003 |
+| static | 80 | 0.51 | 3.21 | -2.70 | -0.55 | 0.0000 | 0.0000 **significant** | 0.0000 | 0.0001 |
+| heuristic_adaptive | 80 | 0.51 | 0.88 | -0.36 | -0.19 | 0.0881 | 0.0881 | 0.0905 | 0.0905 |
+| correlational | 80 | 0.51 | 2.62 | -2.11 | -0.46 | 0.0001 | 0.0004 **significant** | 0.0002 | 0.0006 |
+| population_level | 80 | 0.51 | 2.65 | -2.14 | -0.42 | 0.0003 | 0.0010 **significant** | 0.0012 | 0.0035 |
+| expert_manual | 80 | 0.51 | 1.91 | -1.40 | -0.37 | 0.0013 | 0.0026 **significant** | 0.0024 | 0.0047 |
 
 **Reached 80% mastery within the study horizon** — exact McNemar test on paired yes/no outcomes, Holm-adjusted.
 
 | vs AURA | n pairs | rate (AURA) | rate (other) | discordant pairs | McNemar p | Holm-adjusted |
 |---|---|---|---|---|---|---|
-| static | 80 | 95% | 62% | 26 | 0.0000 | 0.0000 **significant** |
-| heuristic_adaptive | 80 | 95% | 88% | 8 | 0.0703 | 0.0703 |
-| correlational | 80 | 95% | 71% | 21 | 0.0000 | 0.0001 **significant** |
-| population_level | 80 | 95% | 70% | 20 | 0.0000 | 0.0000 **significant** |
-| expert_manual | 80 | 95% | 84% | 11 | 0.0117 | 0.0234 **significant** |
+| static | 80 | 94% | 62% | 25 | 0.0000 | 0.0000 **significant** |
+| heuristic_adaptive | 80 | 94% | 88% | 7 | 0.1250 | 0.1250 |
+| correlational | 80 | 94% | 71% | 20 | 0.0000 | 0.0002 **significant** |
+| population_level | 80 | 94% | 70% | 23 | 0.0001 | 0.0002 **significant** |
+| expert_manual | 80 | 94% | 84% | 10 | 0.0215 | 0.0430 **significant** |
 
 **Reached, and kept, the correct decision within the study horizon** — exact McNemar test on paired yes/no outcomes, Holm-adjusted.
 
 | vs AURA | n pairs | rate (AURA) | rate (other) | discordant pairs | McNemar p | Holm-adjusted |
 |---|---|---|---|---|---|---|
-| static | 80 | 21% | 1% | 16 | 0.0000 | 0.0002 **significant** |
-| heuristic_adaptive | 80 | 21% | 6% | 18 | 0.0075 | 0.0302 **significant** |
-| correlational | 80 | 21% | 6% | 20 | 0.0118 | 0.0355 **significant** |
-| population_level | 80 | 21% | 6% | 20 | 0.0118 | 0.0355 **significant** |
-| expert_manual | 80 | 21% | 6% | 20 | 0.0118 | 0.0355 **significant** |
+| static | 80 | 24% | 1% | 18 | 0.0000 | 0.0000 **significant** |
+| heuristic_adaptive | 80 | 24% | 6% | 22 | 0.0043 | 0.0103 **significant** |
+| correlational | 80 | 24% | 6% | 20 | 0.0026 | 0.0103 **significant** |
+| population_level | 80 | 24% | 6% | 22 | 0.0043 | 0.0103 **significant** |
+| expert_manual | 80 | 24% | 6% | 20 | 0.0026 | 0.0103 **significant** |
 
 ## Ablation study: full_aura vs. each condition
 
@@ -62,44 +62,44 @@ Every test here is PAIRED — each simulated child faced every condition as a cl
 
 | vs full_aura | n pairs | mean (full_aura) | mean (other) | mean diff | Cohen's d_z | t-test p | Holm-adjusted | Wilcoxon p | Holm-adjusted |
 |---|---|---|---|---|---|---|---|---|---|
-| no_hierarchical_prior | 48 | 8.74 | 8.44 | +0.30 | 0.04 | 0.7949 | 0.7949 | 0.6076 | 0.6076 |
-| no_early_predictor | 48 | 8.74 | 32.06 | -23.32 | -1.51 | 0.0000 | 0.0000 **significant** | 0.0000 | 0.0000 |
-| no_safety_layer | 48 | 8.74 | 8.74 | +0.00 | n/a | n/a | n/a | n/a | n/a |
-| no_randomization | 48 | 8.74 | 21.69 | -12.95 | -0.55 | 0.0004 | 0.0008 **significant** | 0.0324 | 0.0649 |
+| no_hierarchical_prior | 48 | 7.80 | 9.18 | -1.38 | -0.14 | 0.3443 | 0.3443 | 0.4361 | 0.4361 |
+| no_early_predictor | 48 | 7.80 | 31.35 | -23.56 | -1.32 | 0.0000 | 0.0000 **significant** | 0.0000 | 0.0000 |
+| no_safety_layer | 48 | 7.80 | 7.80 | +0.00 | n/a | n/a | n/a | n/a | n/a |
+| no_randomization | 48 | 7.80 | 21.69 | -13.89 | -0.57 | 0.0003 | 0.0005 **significant** | 0.0241 | 0.0481 |
 
 **7-day retention % (higher is better)** — paired t-test and Wilcoxon signed-rank, Holm-adjusted across these 4 comparisons.
 
 | vs full_aura | n pairs | mean (full_aura) | mean (other) | mean diff | Cohen's d_z | t-test p | Holm-adjusted | Wilcoxon p | Holm-adjusted |
 |---|---|---|---|---|---|---|---|---|---|
-| no_hierarchical_prior | 48 | 90.56 | 93.09 | -2.53 | -0.18 | 0.2138 | 0.2138 | 0.2763 | 0.2763 |
-| no_early_predictor | 48 | 90.56 | 73.92 | +16.64 | 0.55 | 0.0004 | 0.0011 **significant** | 0.0006 | 0.0018 |
-| no_safety_layer | 48 | 90.56 | 90.56 | +0.00 | n/a | n/a | n/a | n/a | n/a |
-| no_randomization | 48 | 90.56 | 81.65 | +8.91 | 0.29 | 0.0472 | 0.0945 | 0.0222 | 0.0444 |
+| no_hierarchical_prior | 48 | 83.37 | 90.50 | -7.13 | -0.28 | 0.0603 | 0.1810 | 0.1653 | 0.4960 |
+| no_early_predictor | 48 | 83.37 | 85.69 | -2.32 | -0.06 | 0.6635 | 1.0000 | 0.9746 | 0.9906 |
+| no_safety_layer | 48 | 83.37 | 83.37 | +0.00 | n/a | n/a | n/a | n/a | n/a |
+| no_randomization | 48 | 83.37 | 81.65 | +1.72 | 0.05 | 0.7175 | 1.0000 | 0.4953 | 0.9906 |
 
 **Distress events (lower is better)** — paired t-test and Wilcoxon signed-rank, Holm-adjusted across these 4 comparisons.
 
 | vs full_aura | n pairs | mean (full_aura) | mean (other) | mean diff | Cohen's d_z | t-test p | Holm-adjusted | Wilcoxon p | Holm-adjusted |
 |---|---|---|---|---|---|---|---|---|---|
-| no_hierarchical_prior | 48 | 0.75 | 0.46 | +0.29 | 0.15 | 0.2905 | 0.5810 | 0.3897 | 0.7795 |
-| no_early_predictor | 48 | 0.75 | 2.56 | -1.81 | -0.59 | 0.0002 | 0.0005 **significant** | 0.0002 | 0.0006 |
-| no_safety_layer | 48 | 0.75 | 0.75 | +0.00 | n/a | n/a | n/a | n/a | n/a |
-| no_randomization | 48 | 0.75 | 0.75 | +0.00 | 0.00 | 1.0000 | 1.0000 | 0.9675 | 0.9675 |
+| no_hierarchical_prior | 48 | 0.40 | 0.52 | -0.12 | -0.14 | 0.3481 | 0.4639 | 0.2920 | 0.5445 |
+| no_early_predictor | 48 | 0.40 | 2.12 | -1.73 | -0.51 | 0.0009 | 0.0028 **significant** | 0.0002 | 0.0006 |
+| no_safety_layer | 48 | 0.40 | 0.40 | +0.00 | n/a | n/a | n/a | n/a | n/a |
+| no_randomization | 48 | 0.40 | 0.75 | -0.35 | -0.17 | 0.2320 | 0.4639 | 0.2723 | 0.5445 |
 
 **Reached 80% mastery within the study horizon** — exact McNemar test on paired yes/no outcomes, Holm-adjusted.
 
 | vs full_aura | n pairs | rate (full_aura) | rate (other) | discordant pairs | McNemar p | Holm-adjusted |
 |---|---|---|---|---|---|---|
-| no_hierarchical_prior | 48 | 92% | 92% | 2 | 1.0000 | 1.0000 |
-| no_early_predictor | 48 | 92% | 79% | 8 | 0.0703 | 0.2109 |
-| no_safety_layer | 48 | 92% | 92% | 0 | n/a (identical outcomes — no discordant pairs) | n/a |
-| no_randomization | 48 | 92% | 79% | 10 | 0.1094 | 0.2188 |
+| no_hierarchical_prior | 48 | 94% | 94% | 2 | 1.0000 | 1.0000 |
+| no_early_predictor | 48 | 94% | 79% | 7 | 0.0156 | 0.0469 **significant** |
+| no_safety_layer | 48 | 94% | 94% | 0 | n/a (identical outcomes — no discordant pairs) | n/a |
+| no_randomization | 48 | 94% | 79% | 9 | 0.0391 | 0.0781 |
 
 **Reached, and kept, the correct decision within the study horizon** — exact McNemar test on paired yes/no outcomes, Holm-adjusted.
 
 | vs full_aura | n pairs | rate (full_aura) | rate (other) | discordant pairs | McNemar p | Holm-adjusted |
 |---|---|---|---|---|---|---|
-| no_hierarchical_prior | 48 | 29% | 29% | 16 | 1.0000 | 1.0000 |
-| no_early_predictor | 48 | 29% | 8% | 16 | 0.0213 | 0.0425 **significant** |
-| no_safety_layer | 48 | 29% | 29% | 0 | n/a (identical outcomes — no discordant pairs) | n/a |
-| no_randomization | 48 | 29% | 8% | 14 | 0.0129 | 0.0388 **significant** |
+| no_hierarchical_prior | 48 | 35% | 27% | 22 | 0.5235 | 0.5235 |
+| no_early_predictor | 48 | 35% | 6% | 18 | 0.0013 | 0.0039 **significant** |
+| no_safety_layer | 48 | 35% | 35% | 0 | n/a (identical outcomes — no discordant pairs) | n/a |
+| no_randomization | 48 | 35% | 8% | 21 | 0.0072 | 0.0144 **significant** |
 
