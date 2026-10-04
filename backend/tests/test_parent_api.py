@@ -134,14 +134,20 @@ def test_consent_history_is_append_only_and_latest_wins(seeded_db):
 
     r = client.get(f"/parent/children/{child_id}/consent", headers=headers)
     by_scope = {c["scope"]: c["granted"] for c in r.json()}
-    assert by_scope == {"data_collection": True, "camera": False}
+    assert by_scope == {"data_collection": True}  # AURA has no camera feature, so no camera consent exists
 
-    r = client.post(f"/parent/children/{child_id}/consent", headers=headers, json={"scope": "camera", "granted": True})
+    r = client.post(f"/parent/children/{child_id}/consent", headers=headers, json={"scope": "research_use", "granted": True})
+    assert r.status_code == 200
+    r = client.post(f"/parent/children/{child_id}/consent", headers=headers, json={"scope": "research_use", "granted": False})
     assert r.status_code == 200
 
     r = client.get(f"/parent/children/{child_id}/consent", headers=headers)
     by_scope = {c["scope"]: c["granted"] for c in r.json()}
-    assert by_scope["camera"] is True  # latest row wins, old one untouched
+    assert by_scope["research_use"] is False  # latest row wins, old one untouched
+
+    # a camera consent can no longer be granted
+    r = client.post(f"/parent/children/{child_id}/consent", headers=headers, json={"scope": "camera", "granted": True})
+    assert r.status_code == 400
 
 
 def test_companion_search_and_confirm_end_to_end(seeded_db, monkeypatch):

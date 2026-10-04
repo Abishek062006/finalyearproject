@@ -37,7 +37,7 @@ npm run web       # browser, fastest for iteration
 and a few interests) → **Play** to hand the tablet to the child, or
 **View progress** for the parent dashboard (learning time, progress by
 domain, today's suggestion, topics to review, session history) and
-**Privacy & camera settings** (append-only consent — see docs/SCHEMA.md §2).
+**Privacy & sharing** (append-only consent — see docs/SCHEMA.md §2).
 
 **Phase 5 (retention):** happens automatically, no new screen. Finishing a
 topic's matched item set schedules a 3-day and 7-day check-back per active

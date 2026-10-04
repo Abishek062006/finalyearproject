@@ -44,7 +44,7 @@ def search_interests(req: CompanionSearchRequest, user: User = Depends(get_curre
     """Photo search for onboarding — not tied to a child yet (the child is
     only created once the whole flow is confirmed, plan Phase 1)."""
     try:
-        results = companion_service.search_companion_images(req.query)
+        results = companion_service.search_and_rank(req.query)
     except ValueError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
     return [CompanionCandidate(**c) for c in results]
@@ -139,7 +139,10 @@ def update_consent(
     child_id: str, req: ConsentUpdateRequest, user: User = Depends(get_current_user), db: DBSession = Depends(get_db)
 ):
     require_guardian_of(child_id, user, db)
-    return parent_service.update_consent(db, child_id, user.id, req.scope, req.granted)
+    try:
+        return parent_service.update_consent(db, child_id, user.id, req.scope, req.granted)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
 
 
 @router.post("/children/{child_id}/educators", response_model=EducatorLinkOut)
@@ -179,7 +182,7 @@ def search_companion(
 ):
     require_guardian_of(child_id, user, db)
     try:
-        results = companion_service.search_companion_images(req.query)
+        results = companion_service.search_and_rank(req.query)
     except ValueError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
     return [CompanionCandidate(**c) for c in results]

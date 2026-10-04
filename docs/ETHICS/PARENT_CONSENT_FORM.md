@@ -51,9 +51,10 @@ instruction.
   makes the comparison meaningful.
 - Your child's nickname and age (year and month only — not their exact
   birthdate).
-- We do **not** collect your child's home address, school records, or any
-  video/audio **unless** you separately opt in to an optional camera
-  feature below, which is switched **off by default**.
+- We do **not** collect your child's home address or school records, and the
+  app **never uses a camera or microphone**: no video, photos or audio of
+  your child are recorded, ever. (Photos you choose to add for your child's
+  Talk board or stories stay on your own device and are never uploaded.)
 
 ## Your choices — each of these is separate, and optional ones can be
 changed at any time
@@ -61,7 +62,6 @@ changed at any time
 | What | Required to use the app? | Can I change my mind later? |
 |---|---|---|
 | Learning activity data (the core of the study, described above) | Yes — this is what makes the app work at all | You can withdraw your child from the study entirely at any time (see below) |
-| Camera-based engagement signals (helps time gentle breaks; camera video itself is never stored, only a few derived numbers, and even those only if you say yes here) | **No — off by default** | Yes, turn on or off at any time |
 | Including your child's data (with name/nickname removed) in the published, anonymized research dataset | **No** | Yes, turn on or off at any time |
 
 You can see and change every one of these choices yourself, at any time,
@@ -120,8 +120,7 @@ have had the chance to ask questions and have them answered. I understand
 that:
 
 - Taking part is voluntary and I can withdraw at any time with no penalty.
-- I can change any of my optional choices (camera, research data sharing)
-  at any time.
+- I can change my optional choice (research data sharing) at any time.
 - I can request full export or full deletion of my child's data at any
   time.
 
@@ -129,8 +128,6 @@ that:
 this study, including the learning activity data described above (required
 to use the app).
 
-☐ (Optional) I agree to the camera-based engagement feature described
-above.
 
 ☐ (Optional) I agree that my child's anonymized data may be included in the
 published research dataset.

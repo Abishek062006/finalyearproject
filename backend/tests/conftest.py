@@ -10,6 +10,7 @@ effect and would leave a stray backend/aura_dev.db file from test runs.
 import os
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
+os.environ["AURA_ATTENTION_RANKING"] = "0"  # tests never download photos or need the ML model file
 
 import pytest
 from sqlalchemy import create_engine

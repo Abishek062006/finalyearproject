@@ -25,7 +25,6 @@ Contact for privacy questions: `[PLACEHOLDER]`
 | Birth year and month only (never a full birthdate) | Age-appropriate content selection | Yes |
 | Which teaching approach, response method, and theme were used each activity, and how your child responded (correct/incorrect, response time, whether they finished) | This is the actual research measurement — without it there's no study | Yes |
 | A parent/guardian's contact details | To obtain and manage consent | Yes |
-| Camera-derived engagement signals (a few numbers, e.g. "attention seemed to dip around minute 8") — **never raw video or images**, and only if you separately opt in | Helps time gentle breaks | No — off by default, opt-in only |
 | Crash/error reports if the app breaks (a technical error message, never your child's answers) | Keeping the app working during the pilot | Automatic, unavoidable, but contains no learning data |
 
 We do **not** collect: home address, school records or ID, full legal name
@@ -46,8 +45,9 @@ in your jurisdiction — confirm with legal counsel.]`
   parent dashboard.
 - **An educator or counsellor you've specifically granted access to** —
   domain progress and de-identified-from-them-by-default model estimates
-  (explicitly labelled as internal estimates, not a clinical finding), never
-  raw camera data, and only for as long as you keep that access granted.
+  (explicitly labelled as internal estimates, not a clinical finding), and
+  only for as long as you keep that access granted. AURA never records
+  video, photos or audio of your child.
 - **The research team**, but only pseudonymous data (your child's name and
   nickname replaced with a random code, never included), and only if you've
   separately, optionally agreed to "research use" — a choice you can turn
@@ -68,7 +68,7 @@ institution's data-retention policy for published research.]`
 - **See everything we have.** Export your child's complete record at any
   time, in a standard file format, directly from the app — no need to ask
   anyone first (though you're welcome to).
-- **Change your mind on the optional choices** (camera, research use) at
+- **Change your mind on the optional choice** (research use) at
   any time, immediately, from the app.
 - **Withdraw and delete everything.** Request full, permanent deletion of
   your child's data at any time — this isn't a slow or manual process on

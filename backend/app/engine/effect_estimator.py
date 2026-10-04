@@ -26,6 +26,8 @@ class Posterior:
     ci_low: float
     ci_high: float
     n: int
+    alpha: float = 0.0  # the Beta posterior's parameters (population prior included once)
+    beta: float = 0.0
 
 
 @dataclass
@@ -63,7 +65,7 @@ class EffectEstimator:
             n += outcome.n
         mean = alpha / (alpha + beta)
         sd = ((alpha * beta) / ((alpha + beta) ** 2 * (alpha + beta + 1))) ** 0.5
-        return Posterior(arm_id=arm_id, mean=mean, ci_low=max(0, mean - 1.96 * sd), ci_high=min(1, mean + 1.96 * sd), n=n)
+        return Posterior(arm_id=arm_id, mean=mean, ci_low=max(0, mean - 1.96 * sd), ci_high=min(1, mean + 1.96 * sd), n=n, alpha=alpha, beta=beta)
 
     def recent_accuracy(self, child_id: str, axis_id: str, arm_id: str, window: int = DRIFT_WINDOW, kind: str = "immediate") -> tuple[float, int] | None:
         """Mean outcome value over the most recent `window` trials for this

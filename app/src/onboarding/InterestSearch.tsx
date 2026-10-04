@@ -107,11 +107,19 @@ export function InterestSearch({
                     haptic(picked ? "select" : "drop");
                     onPick({ label: lastQuery, candidate: c });
                   }}
-                  accessibilityLabel={`${lastQuery} photo: ${c.source_title}`}
+                  accessibilityLabel={`${lastQuery} photo: ${c.source_title}${c.attention_clear ? ". Clear picture" : ""}`}
                   accessibilityState={{ selected: picked }}
                   style={[styles.tile, { backgroundColor: colors.fill, borderColor: picked ? colors.tint : "transparent" }]}
                 >
                   <Image source={{ uri: c.thumb_url ?? c.image_url }} style={styles.photo} resizeMode="cover" />
+                  {c.attention_clear && (
+                    <View style={styles.clear}>
+                      <Ionicons name="eye" size={12} color="#fff" />
+                      <Text variant="caption" style={styles.clearText}>
+                        Clear picture
+                      </Text>
+                    </View>
+                  )}
                   {picked && (
                     <View style={[styles.check, { backgroundColor: colors.tint }]}>
                       <Ionicons name="checkmark" size={16} color="#fff" />
@@ -150,6 +158,8 @@ const styles = StyleSheet.create({
   grid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   tile: { width: "48%", aspectRatio: 1, borderRadius: radius.lg, overflow: "hidden", borderWidth: 3 },
   photo: { width: "100%", height: "100%" },
+  clear: { position: "absolute", left: 6, bottom: 6, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, backgroundColor: "rgba(36,138,61,0.92)" },
+  clearText: { color: "#fff", fontWeight: "600" },
   check: { position: "absolute", top: 8, right: 8, width: 26, height: 26, borderRadius: 13, alignItems: "center", justifyContent: "center" },
   busy: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.35)", alignItems: "center", justifyContent: "center" },
 });

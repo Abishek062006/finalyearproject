@@ -135,10 +135,11 @@ class DecisionEngine:
         samples = []
         for arm_id in allowed_ids:
             post = self.effects.posterior(child_id, axis.id, arm_id, kind=outcome_kind)
-            # Beta sample via mean/sd moment-matched approximation is overkill here;
-            # sample from a Beta(alpha,beta) reconstructed from mean/n directly.
-            alpha = max(post.mean * post.n, 0.5) + self.effects.population_alpha
-            beta = max((1 - post.mean) * post.n, 0.5) + self.effects.population_beta
+            # The posterior already contains the population prior exactly once:
+            # Beta(prior_a + successes, prior_b + failures). (Earlier versions
+            # rebuilt it from mean*n and added the prior a second time, which
+            # shrank every draw towards 0.5 — fixed before the final studies.)
+            alpha, beta = post.alpha, post.beta
             samples.append((arm_id, self._rng.betavariate(alpha, beta)))
         best_arm_id = max(samples, key=lambda pair: pair[1])[0]
         arm = next(a for a in all_arms if a.id == best_arm_id)

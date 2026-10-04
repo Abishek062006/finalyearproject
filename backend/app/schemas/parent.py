@@ -92,6 +92,10 @@ class CompanionCandidate(BaseModel):
     thumb_url: str | None = None  # small version for display in the app
     source_title: str
     license: str
+    # Picture-quality hint from the attention model (services/attention_service.py):
+    # how concentrated an autistic child's predicted gaze is on the picture.
+    attention_clarity: float | None = None
+    attention_clear: bool = False  # top third of this batch — shown as "Clear picture"
 
 
 class CompanionSearchRequest(BaseModel):

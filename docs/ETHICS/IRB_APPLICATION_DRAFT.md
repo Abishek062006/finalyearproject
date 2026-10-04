@@ -120,12 +120,11 @@ provided]`.
 1. Site staff introduce the study to eligible families; interested parents
    receive `PRIVACY_NOTICE.md` and `PARENT_CONSENT_FORM.md`.
 2. A researcher (or trained site staff) answers questions and obtains
-   signed parental consent. Consent explicitly separates three things a
+   signed parental consent. Consent explicitly separates two things a
    parent can independently grant or withhold: use of learning-activity
-   data (required to use the app at all), camera-derived engagement signals
-   (optional, off by default, see §9), and inclusion of pseudonymous data
-   in the published research dataset (optional, withdrawable at any time —
-   see `PRIVACY_NOTICE.md`).
+   data (required to use the app at all), and inclusion of pseudonymous
+   data in the published research dataset (optional, withdrawable at any
+   time — see `PRIVACY_NOTICE.md`). The app uses no camera or microphone.
 3. Before each session, the adult running it checks the child's ongoing
    willingness to participate per `CHILD_ASSENT_GUIDE.md` — this is checked
    every session, not just once at enrollment.
@@ -135,10 +134,10 @@ provided]`.
    randomized for comparison purposes, increasingly favouring whichever
    option the data shows works for that child once enough evidence exists.
 5. All interaction data (which option was shown, correctness, response
-   time, completion) is logged automatically. No audio or video is
-   recorded unless the separate, off-by-default camera consent was given,
-   and even then only derived low-dimensional engagement signals are
-   stored, never raw frames (README §9).
+   time, completion) is logged automatically. No audio, video or
+   photographs of the child are recorded: the app uses no camera or
+   microphone. (Attention predictions for pictures come from a model that
+   sees only the picture, never the child.)
 6. The educator/counsellor dashboard shows the participating site's staff
    what the app has learned about each child so far, explicitly labelled as
    internal model estimates rather than a clinical finding (README §2B),
@@ -211,7 +210,7 @@ is the same information in application-review form.
   database id (`app/services/export_service.py`).
 - **Access control:** a parent sees their own child's full record; an
   educator/counsellor sees only what the parent has explicitly granted
-  access to, and never raw camera data; the research team sees only
+  access to, and no recordings of the child exist; the research team sees only
   pseudonymous data, and only for children whose parent has separately
   granted the optional "research use" consent scope, checked by the system
   before every export (`backend/app/api/educator.py`'s

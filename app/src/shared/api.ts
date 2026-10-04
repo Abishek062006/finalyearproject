@@ -408,6 +408,8 @@ export interface CompanionCandidate {
   thumb_url: string | null; // small version for display; image_url is what the server downloads
   source_title: string;
   license: string;
+  attention_clarity?: number | null; // how concentrated the autism-attention model predicts gaze will be
+  attention_clear?: boolean; // the clearest photo(s) of the batch: shown as "Clear picture"
 }
 
 export interface CompanionResult {

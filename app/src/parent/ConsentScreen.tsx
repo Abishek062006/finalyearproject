@@ -15,11 +15,6 @@ const SCOPE_LABELS: Record<string, { title: string; description: string }> = {
     title: "Learning activity data",
     description: "Lets AURA track progress and adapt lessons. Required to use the app.",
   },
-  camera: {
-    title: "Camera (optional)",
-    description:
-      "Estimates broad engagement signals (e.g. looking away) to help time gentle breaks. Never used for diagnosis, and off by default.",
-  },
   research_use: {
     title: "Include in anonymized research data (optional)",
     description:
@@ -166,9 +161,9 @@ export function ConsentScreen({
       </Card>
 
       <Text style={styles.footnote}>
-        AURA never uses camera or activity data to diagnose autism, emotions, or any mental health
-        condition. Signals are treated as uncertain and only ever inform gentle, reversible adjustments
-        to the lesson.
+        AURA never uses a camera or microphone to record your child, and never uses activity data to
+        diagnose autism, emotions, or any mental health condition. Answers are treated as uncertain and
+        only ever inform gentle, reversible adjustments to the lesson.
       </Text>
     </Screen>
   );

@@ -82,7 +82,7 @@ def _commons_get(params: dict, retries: int = 3) -> dict:
     return {}
 
 
-def search_companion_images(query: str) -> list[dict]:
+def search_companion_images(query: str, limit: int = MAX_CANDIDATES) -> list[dict]:
     violations = validate_query(query)
     if violations:
         raise ValueError(f"invalid query: {', '.join(violations)}")
@@ -92,7 +92,7 @@ def search_companion_images(query: str) -> list[dict]:
         "generator": "search",
         "gsrsearch": f"filetype:bitmap {query}",
         "gsrnamespace": 6,
-        "gsrlimit": MAX_CANDIDATES * 3,  # over-fetch — UNSAFE_TITLE_WORDS filtering below drops some
+        "gsrlimit": limit * 3,  # over-fetch — UNSAFE_TITLE_WORDS filtering below drops some
         "prop": "imageinfo",
         "iiprop": "url|extmetadata|mime",
         # A 640px rendition, used both for display and as what the server stores:
@@ -115,9 +115,20 @@ def search_companion_images(query: str) -> list[dict]:
         license_name = meta.get("LicenseShortName", {}).get("value", "Unknown license")
         sized = info.get("thumburl") or url
         candidates.append({"image_url": sized, "thumb_url": sized, "source_title": title, "license": license_name})
-        if len(candidates) == MAX_CANDIDATES:
+        if len(candidates) == limit:
             break
     return candidates
+
+
+def search_and_rank(query: str) -> list[dict]:
+    """The photo search shown to parents: the best MAX_CANDIDATES of a larger
+    pool, clearest first when the attention model is available (plan Phase 7);
+    otherwise exactly the plain search."""
+    from app.services import attention_service
+
+    if not attention_service.available():
+        return search_companion_images(query)
+    return attention_service.rank(search_companion_images(query, limit=attention_service.POOL_SIZE), keep=MAX_CANDIDATES)
 
 
 # Wikimedia's own image hosts: originals on upload., sized renditions on thumb.

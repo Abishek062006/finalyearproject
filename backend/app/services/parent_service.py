@@ -162,11 +162,11 @@ def _create_child_rows(db: DBSession, owner_user_id: str, nickname: str, birth_y
             continue
         db.add(InterestState(child_id=child.id, theme_id=theme.id, parent_prior=1.0))
 
-    # README §18: data_collection consent is required at creation; camera
-    # defaults to OFF and must be separately, explicitly granted.
+    # README §18: data_collection consent is required at creation. AURA has no
+    # camera feature, so no camera consent is created (older rows are kept as
+    # history but never shown and can no longer be granted).
     now = datetime.now(timezone.utc)
     db.add(Consent(child_id=child.id, scope="data_collection", granted=True, granted_by=owner_user_id, granted_at=now))
-    db.add(Consent(child_id=child.id, scope="camera", granted=False, granted_by=owner_user_id, granted_at=now))
     db.flush()
     return child
 
@@ -379,7 +379,12 @@ def list_educators_for_child(db: DBSession, child_id: str) -> list[User]:
     return db.query(User).filter(User.id.in_(ids)).all() if ids else []
 
 
+CONSENT_SCOPES = ("data_collection", "research_use")
+
+
 def update_consent(db: DBSession, child_id: str, user_id: str, scope: str, granted: bool) -> Consent:
+    if scope not in CONSENT_SCOPES:
+        raise ValueError(f"unknown consent scope: {scope}")
     consent = Consent(
         child_id=child_id, scope=scope, granted=granted, granted_by=user_id, granted_at=datetime.now(timezone.utc)
     )
