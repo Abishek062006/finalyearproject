@@ -31,7 +31,10 @@ function resolveDevHost(): string {
 }
 
 const DEV_HOST = resolveDevHost();
-export const API_BASE = `http://${DEV_HOST}:8000`;
+// The backend's port: 8000 by default; set EXPO_PUBLIC_API_PORT when another
+// program already uses 8000 on the dev machine.
+const API_PORT = process.env.EXPO_PUBLIC_API_PORT || "8000";
+export const API_BASE = `http://${DEV_HOST}:${API_PORT}`;
 
 export type CommunicationLevel = "sentences" | "words" | "gestures" | "non_speaking";
 export type SensoryFlag = "sounds" | "lights" | "motion" | "timers";
